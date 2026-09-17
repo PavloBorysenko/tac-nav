@@ -1,0 +1,93 @@
+# ===================================
+# WordPress Core
+# ===================================
+/wp-admin/
+/wp-includes/
+/.well-known/
+
+# WordPress root files
+/*.php
+/*.html
+/*.txt
+/*.log
+/*.zip
+
+# Local and sensitive configuration
+/wp-config.php
+/.htaccess
+/.user.ini
+/.env
+/.env.*
+!/.env.example
+
+# ===================================
+# WordPress Content
+# ===================================
+
+# Ignore generated and third-party content by default
+/wp-content/*
+
+# Allow theme and plugin directories
+!/wp-content/themes/
+!/wp-content/plugins/
+
+# Ignore installed themes and plugins
+/wp-content/themes/*
+/wp-content/plugins/*
+
+# ===================================
+# Custom Theme
+# ===================================
+
+!/wp-content/themes/emg-develop/
+
+# Local dependencies and generated files
+#/wp-content/themes/develop/node_modules/
+
+# ===================================
+# Custom (Modified) Plugins
+# ===================================
+
+# CI-generated plugin assets
+/wp-content/plugins/*/build/
+/wp-content/plugins/*/dist/
+
+# ===================================
+# Optional MU Plugins
+# ===================================
+
+# Uncomment when custom MU plugins are introduced:
+# !/wp-content/mu-plugins/
+# /wp-content/mu-plugins/*
+# !/wp-content/mu-plugins/emg-loader.php
+
+# ===================================
+# IDE, OS And Temporary Files
+# ===================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+*.log
+
+# ===================================
+# Dependencies
+# ===================================
+
+node_modules/
+vendor/
+
+# Keep dependency lock files in Git:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# composer.lock
