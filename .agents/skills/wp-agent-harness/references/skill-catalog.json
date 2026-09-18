@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "pack": {
+    "git": "https://git.supernovadevelopers.com/borysenko.p/ai-skill-wp-harnes.git",
+    "ref": "main",
+    "pathPrefix": "result"
+  },
+  "alwaysRequired": [
+    {
+      "id": "wp-agent-harness",
+      "source": "supernova-pack",
+      "why": "Environment controller; vendored in .agents/skills/wp-agent-harness"
+    },
+    {
+      "id": "wordpress-project-documentation",
+      "source": "supernova-pack",
+      "why": "Repository map and progressive disclosure"
+    },
+    {
+      "id": "wordpress-router",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "why": "Classify plugin, theme, site, or blocks"
+    }
+  ],
+  "requiredByShape": [
+    {
+      "id": "wp-phpstan",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "firstPartyPhp",
+      "why": "PHPStan workflow for first-party PHP"
+    },
+    {
+      "id": "wp-plugin-development",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "customPlugin",
+      "why": "Custom plugin architecture and hooks"
+    },
+    {
+      "id": "wp-block-themes",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "themeJson",
+      "why": "theme.json and site editor surfaces"
+    },
+    {
+      "id": "wp-block-development",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "blockJson",
+      "why": "block.json and Gutenberg blocks"
+    }
+  ],
+  "recommendedByShape": [
+    {
+      "id": "wp-rest-api",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "restApi",
+      "why": "Custom REST routes"
+    },
+    {
+      "id": "wp-performance",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "firstPartyPhp",
+      "why": "Queries, autoload, caching"
+    },
+    {
+      "id": "wp-patterns",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "patterns",
+      "why": "Block patterns"
+    },
+    {
+      "id": "wp-playground",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "always",
+      "why": "Disposable WP without Local"
+    },
+    {
+      "id": "wpds",
+      "source": "WordPress/agent-skills",
+      "set": "wordpress",
+      "when": "wpAdminUi",
+      "why": "wp-admin UI"
+    },
+    {
+      "id": "responsive-design",
+      "source": "wshobson/agents",
+      "when": "frontend",
+      "why": "Theme layout and SCSS"
+    },
+    {
+      "id": "wp-browser-sensor",
+      "source": "supernova-pack",
+      "when": "always",
+      "why": "Local URL UI check after green gates; invoked by the harness, not a linter"
+    },
+    {
+      "id": "local-code-review",
+      "source": "supernova-pack",
+      "when": "always",
+      "why": "Local review of first-party PHP, HTML templates, JS, and CSS after green gates; invoked by the harness, not a linter"
+    },
+    {
+      "id": "wordpress-testing",
+      "source": "supernova-pack",
+      "when": "always",
+      "why": "How to derive behavioral PHPUnit and Jest tests from specs, including an existing WP_UnitTestCase suite; not test-tooling provision"
+    },
+    {
+      "id": "wordpress-component-creation",
+      "source": "supernova-pack",
+      "when": "always",
+      "why": "Scaffold a new first-party theme or plugin in this git repo; not ordinary coding"
+    },
+    {
+      "id": "wordpress-project-creation",
+      "source": "supernova-pack",
+      "when": "always",
+      "why": "Git root, GitLab CI, gitignore, and user-run SSH wp-content/DB sync; not ordinary coding or component scaffold"
+    }
+  ],
+  "unavailable": [
+    {
+      "id": "wp-testing",
+      "why": "Planned in WordPress/agent-skills, not published yet"
+    }
+  ]
+}

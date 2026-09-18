@@ -1,0 +1,9 @@
+---
+description: How to use repository documentation without loading the docs tree
+alwaysApply: true
+---
+
+# Project documentation
+
+- For project-specific behavior, open `docs/catalog.md` first. Follow only links whose reading condition matches the task. Do not load the rest of `docs/`.
+- After changing code, update existing documents whose catalog conditions match the change. Do not create missing documentation unless the user asked for it.

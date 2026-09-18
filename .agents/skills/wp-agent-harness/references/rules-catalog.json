@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "qaLoop": {
+    "id": "qa-loop",
+    "file": ".cursor/rules/wp-agent-harness-qa.mdc",
+    "defaultMode": "task",
+    "modes": [
+      {
+        "id": "task",
+        "why": "When the agent is developing: run phpcs, PHPStan, and JS lint on changed first-party files before finishing, then fix from red output."
+      },
+      {
+        "id": "every-change",
+        "why": "After every first-party file write in the same turn, run the matching gates on that file before the next edit."
+      },
+      {
+        "id": "manual",
+        "why": "Do not run gates unless the user asks to lint, phpcs, phpstan, or verify."
+      }
+    ]
+  },
+  "recommended": [
+    {
+      "id": "first-party-scope",
+      "file": ".cursor/rules/wp-agent-harness-scope.mdc",
+      "why": "Stop edits to Core and third-party plugins when git does not map them as first-party."
+    },
+    {
+      "id": "docs-catalog",
+      "detect": "catalog.md mention in any .cursor/rules/*.mdc",
+      "why": "Catalog-first docs so the agent does not load the whole docs tree."
+    }
+  ]
+}

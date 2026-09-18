@@ -1,0 +1,21 @@
+---
+description: Run phpcs, PHPStan, JS lint, and existing tests only when the user asks
+alwaysApply: false
+harness: qa-loop
+qaLoop: manual
+---
+
+# WP agent harness QA loop
+
+Harness QA loop: manual
+
+Do not run phpcs, PHPStan, JS lint, or tests unless the user asks to lint, phpcs, phpstan, test, or verify. When they ask, run only the gates that exist, on the first-party files they named (or the current changeset if they did not name files).
+
+- PHP: `phpcs --standard=phpcs.xml.dist <files>` then `php tools/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist --memory-limit=1G <files>`
+- Theme JS with `@wordpress/scripts`: `npm run lint:js` in that component
+- Other first-party JS: `npm --prefix tools/js-lint run lint -- <files>`
+- If tests were requested, Read `.agents/skills/wordpress-testing/SKILL.md`; add only tests warranted by explicit OpenSpec scenarios or acceptance criteria. Run the focused new/failing test, then the existing suite. If `phpunit.xml.dist` exists: `php tools/phpunit/vendor/bin/phpunit -c phpunit.xml.dist`. If Jest exists: `npm --prefix tools/js-test test`, or the component `test` script. Diagnose failures against the contract; do not rewrite assertions merely for green.
+- JS style debt: still run lint. Do not `--fix` or rewrite a whole file for `linebreak-style`, `prettier/prettier`, `indent`, `space-in-parens`, or `template-curly-spacing` unless the user asked to format. Report that count. Fix syntax, `no-undef`, and issues in lines you added. A repo-wide LF/prettier pass is a separate task.
+- Skip Core, third-party plugins, `vendor`, `node_modules`, `build`, minified and hashed bundles
+- Do not add new findings to `phpstan-baseline.neon`
+- Do not open a browser in this loop. After green gates, on UI tasks only, the harness invokes `wp-browser-sensor`. After the browser pass or skip, on non-tiny first-party PHP, HTML templates, JS, or CSS, the harness invokes `local-code-review`.

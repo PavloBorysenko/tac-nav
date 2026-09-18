@@ -1,0 +1,9 @@
+---
+description: Limit agent edits to confirmed first-party WordPress themes and plugins
+alwaysApply: true
+harness: first-party-scope
+---
+
+# First-party work scope
+
+Do not edit `wp-admin/`, `wp-includes/`, or third-party plugins. A plugin on disk is not first-party unless git tracks it and the user confirmed that slug. If first-party is unconfirmed, ask which themes and plugins the agent may change. Do not infer ownership from `wp-content/plugins` alone.

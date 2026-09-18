@@ -1,0 +1,22 @@
+---
+description: Run first-party phpcs, PHPStan, JS lint, and existing tests while developing so the agent can self-correct
+alwaysApply: true
+harness: qa-loop
+qaLoop: task
+---
+
+# WP agent harness QA loop
+
+Harness QA loop: task
+
+When changing first-party theme or plugin files, run the gates that exist in this repo on those files before claiming the task done. Do not wait for the user to ask. Red output is the fix list: fix, re-run, then finish.
+
+- PHP: `phpcs --standard=phpcs.xml.dist <files>` then `php tools/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist --memory-limit=1G <files>`
+- Theme JS with `@wordpress/scripts`: `npm run lint:js` in that component, passing the changed files when the script allows
+- Other first-party JS: `npm --prefix tools/js-lint run lint -- <files>`
+- For new or changed observable behavior with an explicit OpenSpec scenario or acceptance criterion and an existing runner, Read `.agents/skills/wordpress-testing/SKILL.md` and add warranted tests. Skip tiny wiring/presentation changes and do not invent expected results.
+- Run the focused new/failing test, then the suite. If `phpunit.xml.dist` exists: `php tools/phpunit/vendor/bin/phpunit -c phpunit.xml.dist`. If Jest exists: `npm --prefix tools/js-test test`, or the component `test` script. Diagnose test failures against the contract; do not rewrite assertions merely for green.
+- JS style debt: still run lint. Do not `--fix` or rewrite a whole file for `linebreak-style`, `prettier/prettier`, `indent`, `space-in-parens`, or `template-curly-spacing` unless the user asked to format. Report that count. Fix syntax, `no-undef`, and issues in lines you added. A repo-wide LF/prettier pass is a separate task.
+- Skip Core, third-party plugins, `vendor`, `node_modules`, `build`, minified and hashed bundles
+- Do not add new findings to `phpstan-baseline.neon`
+- Do not open a browser in this loop. After green gates, on UI tasks only, the harness invokes `wp-browser-sensor`. After the browser pass or skip, on non-tiny first-party PHP, HTML templates, JS, or CSS, the harness invokes `local-code-review`.
