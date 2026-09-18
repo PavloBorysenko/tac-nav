@@ -39,10 +39,8 @@
 # Custom Theme
 # ===================================
 
-!/wp-content/themes/emg-develop/
-
-# Local dependencies and generated files
-#/wp-content/themes/develop/node_modules/
+!/wp-content/themes/tacnav/
+/wp-content/themes/tacnav/build/
 
 # ===================================
 # Custom (Modified) Plugins
@@ -85,6 +83,9 @@ Desktop.ini
 
 node_modules/
 vendor/
+
+# QA tool caches
+/tools/phpunit/.phpunit.cache/
 
 # Keep dependency lock files in Git:
 # package-lock.json

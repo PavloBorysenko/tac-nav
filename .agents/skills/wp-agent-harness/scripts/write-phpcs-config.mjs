@@ -3,10 +3,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 function parseArgs(argv) {
-  const args = { confirm: false, root: process.cwd(), prefixes: [], files: [] };
+  const args = {
+    confirm: false,
+    root: process.cwd(),
+    prefixes: [],
+    files: [],
+    allowEmptyFiles: false,
+  };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--confirm") args.confirm = true;
+    else if (a === "--allow-empty-files") args.allowEmptyFiles = true;
     else if (a === "--root" && argv[i + 1]) args.root = argv[++i];
     else if (a === "--prefixes" && argv[i + 1]) {
       args.prefixes = argv[++i]
@@ -64,9 +71,16 @@ function main() {
     process.stderr.write("Refusing to write phpcs.xml.dist: pass --confirm after the user approved repo config.\n");
     process.exit(2);
   }
-  if (args.files.length === 0) {
-    process.stderr.write("Refusing: --files must list confirmed first-party paths only.\n");
+  if (args.files.length === 0 && !args.allowEmptyFiles) {
+    process.stderr.write(
+      "Refusing: --files must list confirmed first-party paths, or pass --allow-empty-files after intent Yes with no custom code yet.\n",
+    );
     process.exit(2);
+  }
+  if (args.files.length === 0 && args.allowEmptyFiles) {
+    process.stderr.write(
+      "Writing phpcs.xml.dist with no <file> entries. Register the first non-tiny theme or plugin later; do not invent paths.\n",
+    );
   }
 
   const blocked = ["wp-admin", "wp-includes"];

@@ -4,7 +4,7 @@ import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const TOOL_VERSION = "0.12.0";
+const TOOL_VERSION = "0.13.0";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = path.resolve(__dirname, "..");
 
@@ -915,6 +915,7 @@ function main() {
   const wpScriptsUnlinted = qa.some((q) => q.wpScripts && !q.lintJs);
   const sourceJsNeedsTools = qa.some((q) => !q.wpScripts && q.lintableJs > 0) && !jsLintTool.present;
   const sourceJs = qa.some((q) => q.wpScripts || q.lintableJs > 0);
+  const emptyFirstParty = !needsConfirmation && qa.length === 0;
   const firstPartyQaMissing = {
     phpcsConfig: qa.length > 0 && !phpcsTool.config.path && qa.every((q) => !q.phpcs),
     phpstan: qa.length > 0 && !phpstanTool.config.path && qa.every((q) => !q.phpstan),
@@ -922,6 +923,17 @@ function main() {
     phpunit: qa.length > 0 && !phpunitTool.present,
     jest: sourceJs && !jestTool.present && qa.every((q) => !q.jest),
     wpUnitTestCase: qa.length > 0 && !phpunitTool.wpUnitTestCase.present,
+  };
+  const offerOnIntent = {
+    phpcsGlobal: !phpcsTool.onPath,
+    wpcs: phpcsTool.onPath && !phpcsTool.wpcs,
+    phpcsConfig: !phpcsTool.config.path,
+    phpstan: !phpstanTool.config.path,
+    lintJs: !jsLintTool.present,
+    phpunit: !phpunitTool.present,
+    jest: !jestTool.present,
+    wpUnitTestCase: !phpunitTool.wpUnitTestCase.present,
+    qaLoop: cursorRules.missing.qaLoop,
   };
 
   const report = {
@@ -952,6 +964,8 @@ function main() {
       wpUnitTestCase: phpunitTool.wpUnitTestCase,
       components: qa,
       missing: firstPartyQaMissing,
+      emptyFirstParty,
+      offerOnIntent,
     },
     openspec: openspecTool,
     rules: cursorRules,
@@ -988,8 +1002,11 @@ function main() {
       openspecTool.missing.pin
         ? "Official OpenSpec skills are present but not pinned. Ask Pin official OpenSpec skills (disable-model-invocation) so they do not auto-invoke on ordinary coding. After Yes, disable-openspec-auto-invoke.mjs --confirm --root. Not now is valid."
         : null,
+      emptyFirstParty
+        ? "No first-party theme or plugin yet. Ask whether this project will get a custom theme or plugin. If Yes, walk PHPCS, PHPStan, JS lint, PHPUnit, and Jest from qa.offerOnIntent even with no paths. Install approved toolboxes now; register paths when the first non-tiny component is created. Tiny scaffolds skip that registration."
+        : null,
       cursorRules.missing.qaLoop
-        ? "No QA-loop Cursor rule. Ask which mode to write: task (default, run gates before finishing a coding task), every-change, or manual. Then write-cursor-rule.mjs --confirm --id qa-loop --mode <mode>."
+        ? "No QA-loop Cursor rule. The QA loop is required. Ask task (default), every-change, or manual. Do not offer Not now. Then write-cursor-rule.mjs --confirm --id qa-loop --mode <mode>."
         : `QA-loop Cursor rule is ${cursorRules.qaLoop.mode} (${cursorRules.qaLoop.file}).`,
       skills.wordpressSet.missing.length
         ? "Official WordPress/agent-skills are missing from this project. Ask Install WordPress skills set (all missing skills.wordpressSet ids) / Choose individually / Do not install WordPress skills. Offer this even with no custom plugin or theme yet. A personal ~/.cursor/skills copy does not count."

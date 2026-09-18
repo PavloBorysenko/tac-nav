@@ -1,0 +1,12 @@
+{
+    "name": "site/phpstan-tools",
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "szepeviktor/phpstan-wordpress": "^2.0"
+    }
+}

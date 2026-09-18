@@ -49,9 +49,12 @@ Ask for PHP prefixes / text domain used in first-party code (example: `Supernova
 
 ```bash
 node scripts/write-phpcs-config.mjs --confirm --root "/absolute/wp-root" --prefixes "Supernova,sn_" --files "wp-content/themes/foo,wp-content/plugins/bar"
+node scripts/write-phpcs-config.mjs --confirm --root "/absolute/wp-root" --prefixes "Acme,acme_" --allow-empty-files
 ```
 
-`--files` must be first-party paths the user already confirmed. Never point PHPCS at `wp-admin`, `wp-includes`, or third-party plugins. The generated ruleset sets `extensions` to `php` so PHPCS does not scan JS or CSS.
+`--files` must be first-party paths the user already confirmed. After intent Yes with no custom code yet, `--allow-empty-files` writes the ruleset with prefixes only and no `<file>` tags. Never point PHPCS at `wp-admin`, `wp-includes`, or third-party plugins. The generated ruleset sets `extensions` to `php` so PHPCS does not scan JS or CSS.
+
+The script refuses to overwrite. When this turn created a new **non-tiny** first-party theme or plugin, edit the existing `phpcs.xml.dist` in place: add that folder and its PHP prefix family. Tiny scaffolds skip that edit.
 
 ## Agent loop
 

@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<ruleset name="WP Agent Harness">
+  <description>First-party WordPress coding standards. PHPCS itself is installed globally for the whole team.</description>
+
+  <arg name="extensions" value="php"/>
+  <exclude-pattern>*/vendor/*</exclude-pattern>
+  <exclude-pattern>*/node_modules/*</exclude-pattern>
+  <exclude-pattern>*/build/*</exclude-pattern>
+  <rule ref="WordPress-Extra"/>
+  <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+    <properties>
+      <property name="prefixes" type="array">
+        <element value="TacNav"/>
+        <element value="tacnav"/>
+        <element value="tac_"/>
+      </property>
+    </properties>
+  </rule>
+</ruleset>

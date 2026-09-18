@@ -1,0 +1,18 @@
+{
+	"$schema": "https://schemas.wp.org/wp/6.7/theme.json",
+	"version": 3,
+	"settings": {
+		"color": {
+			"palette": [
+				{
+					"color": "#D4CBB3",
+					"name": "Khaki",
+					"slug": "khaki"
+				}
+			]
+		}
+	},
+	"styles": {
+		"css": "header.wp-block-template-part, footer.wp-block-template-part { background-color: var(--wp--preset--color--khaki); }"
+	}
+}

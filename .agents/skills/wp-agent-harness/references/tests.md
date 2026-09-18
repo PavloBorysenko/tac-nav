@@ -36,7 +36,7 @@ composer config --working-dir=tools/phpunit platform.php <platform>
 composer require --working-dir=tools/phpunit --dev phpunit/phpunit:<constraint> --no-interaction
 ```
 
-Write `phpunit.xml.dist` at the WordPress root. Point `<directory>` at confirmed first-party `tests/` paths only:
+Write `phpunit.xml.dist` at the WordPress root. Point `<directory>` at confirmed first-party `tests/` paths only. After intent Yes with no custom code yet, the suite and `tools/phpunit` may exist with no `<directory>` entries until the first **non-tiny** component gets `<component>/tests/`. When this turn created a new **non-tiny** first-party theme or plugin and PHPUnit already exists, add that `tests/` path and create the empty folder. Do not invent a behavior test. Tiny scaffolds skip that registration.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -78,7 +78,7 @@ Prefer the Composer-installed WP PHPUnit library for a cross-platform team setup
 
 ## Jest (after explicit confirmation)
 
-Offer Jest only when first-party source JS exists.
+Offer Jest when first-party source JS exists, or after intent Yes even with no custom JS yet (`roots` may stay empty until a non-tiny component has utilities). When this turn created a new **non-tiny** first-party theme or plugin with source JS, add those directories to the existing Jest config. Tiny scaffolds skip that edit.
 
 ```bash
 npm init -y --prefix tools/js-test

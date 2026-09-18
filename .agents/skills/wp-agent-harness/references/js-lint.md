@@ -12,7 +12,7 @@ Do not use PHPCS on JS. Do not `npm init` ESLint inside every plugin.
 | --- | --- |
 | Component has `@wordpress/scripts` | `lint:js` in that component `package.json` (`wp-scripts lint-js`) |
 | First-party JS, no wp-scripts | `tools/js-lint/` (`eslint` + `@wordpress/eslint-plugin/esnext`), `paths.json` lists those directories |
-| No first-party JS | Skip. Audit `missing.lintJs` stays false |
+| No first-party JS | Skip on an ordinary coding task. After intent Yes, still write `tools/js-lint` with an empty `paths.json` |
 
 ## Repo toolbox (after explicit confirmation)
 
@@ -21,7 +21,7 @@ npm install --prefix tools/js-lint
 npm --prefix tools/js-lint run lint
 ```
 
-`paths.json` is site-specific. `node_modules` is gitignored; commit `package.json` and `package-lock.json`.
+`paths.json` is site-specific. Empty `paths.json` is valid until a **non-tiny** component has source JS. When this turn created such a component, add its JS directories. Tiny scaffolds skip that edit. `node_modules` is gitignored; commit `package.json` and `package-lock.json`.
 
 Extend `plugin:@wordpress/eslint-plugin/esnext`, not `recommended`. The recommended preset loads `@typescript-eslint` even for plain JS and can crash (`ts-api-utils` / `Intrinsic`) with eslint 8 and `@wordpress/eslint-plugin` 22.
 

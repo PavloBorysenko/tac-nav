@@ -56,7 +56,7 @@ Live invoke traces: `wordpress-harness-workspace/iteration-4/`. Grade with `--ev
 
 HOW (checklist quality, not invoke): `python ../wp-browser-sensor/evals/check_how.py`. Live: `wordpress-harness-workspace/iteration-5/`.
 
-Sensor skills in `audit.mjs` (recommended, `when: always`): `python evals/check_sensor_skills.py`. WordPress skills set plus `wordpress-testing` / `wordpress-component-creation` on an empty site: `python evals/check_wordpress_set.py`. Live harness develop + audit JSON: `wordpress-harness-workspace/iteration-8/`. Live eval 7 (user-asked review) and eval 8 (skill missing): `wordpress-harness-workspace/iteration-9/`.
+Sensor skills in `audit.mjs` (recommended, `when: always`): `python evals/check_sensor_skills.py`. WordPress skills set plus `wordpress-testing` / `wordpress-component-creation` on an empty site: `python evals/check_wordpress_set.py`. Empty-site intent QA (`qa.emptyFirstParty`, `qa.offerOnIntent`, mandatory QA loop, `--allow-empty-files`): `python evals/check_intent_qa.py`. Live harness develop + audit JSON: `wordpress-harness-workspace/iteration-8/`. Live eval 7 (user-asked review) and eval 8 (skill missing): `wordpress-harness-workspace/iteration-9/`.
 
 ## Test writing
 

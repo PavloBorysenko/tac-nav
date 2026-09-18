@@ -1,0 +1,12 @@
+{
+  "name": "site-js-lint",
+  "private": true,
+  "description": "ESLint toolbox for first-party WordPress JS. Paths live in paths.json.",
+  "scripts": {
+    "lint": "node lint.cjs"
+  },
+  "devDependencies": {
+    "@wordpress/eslint-plugin": "^22.0.0",
+    "eslint": "^8.57.1"
+  }
+}

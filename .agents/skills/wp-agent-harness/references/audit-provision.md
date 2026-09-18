@@ -44,14 +44,25 @@ Always ask when the audit lists any remaining recommended ids that are not `set:
 - If `wordpress-component-creation` is offered: should agents scaffold new first-party themes/plugins with this repo's prefix and bootstrap rules? Yes / No (if No, drop it).
 - If `wordpress-project-creation` is offered: should agents set up git/GitLab/CI and print SSH wp-content/DB sync commands (not run them)? Yes / No (if No, drop it).
 
+## First-party intent (empty repo)
+
+If `qa.emptyFirstParty` is true, ask before skipping QA tools:
+
+- Prompt: will this project get a custom theme or plugin?
+- Options: `Yes — offer the QA toolbox` / `No — skip toolbox for now`
+
+`No` skips PHPCS config, PHPStan, JS lint, PHPUnit, and Jest. The QA-loop rule is still required.
+
+`Yes` means walk the toolbox list from `qa.offerOnIntent` even with no custom code yet. Install approved toolboxes now. Do not invent first-party paths. Add those paths when the first **non-tiny** custom theme or plugin is created. Tiny scaffolds skip registration.
+
 ## PHPCS (team-global tool + repo config)
 
-Read `references/phpcs.md` only after the user wants this layer.
+Read `references/phpcs.md` only after the user wants this layer (named PHPCS, or they chose Yes on intent, or `qa.missing.phpcsConfig` is true).
 
 - If `qa.phpcs.onPath` is false: ask `Install PHPCS + WPCS globally (required for every teammate)` / `Not now`. Do not offer per-plugin Composer as the default. After Yes, `references/phpcs.md` pins PHPCS 3.x + WPCS 3.x to the PHP that will run `phpcs`; do not install PHPCS 4 or unpinned `squizlabs/php_codesniffer`.
 - If `onPath` and not `qa.phpcs.wpcs`: ask `Add WordPress standards globally` / `Not now`.
-- If the tool is ready and `qa.missing.phpcsConfig`: ask prefixes, then `Write phpcs.xml.dist for confirmed first-party paths` / `Not now`.
-- PHPStan and JS lint stay `Not now` in this PHPCS block unless the user already named those layers.
+- If the tool is ready and (`qa.missing.phpcsConfig` or intent Yes and `qa.offerOnIntent.phpcsConfig`): ask prefixes if known, then `Write phpcs.xml.dist` / `Not now`. With confirmed first-party paths, pass `--files`. With intent only, `write-phpcs-config.mjs --confirm --allow-empty-files` (no `<file>` yet).
+- PHPStan and JS lint stay `Not now` in this PHPCS block unless the user already named those layers or chose intent Yes.
 
 ## Documentation
 
@@ -59,19 +70,25 @@ Read `references/phpcs.md` only after the user wants this layer.
 
 ## QA tools (other)
 
-- PHPStan: if the user named this layer, read `references/phpstan.md`. Ask `Write tools/phpstan + phpstan.neon.dist + baseline for first-party paths` / `Not now`. After Yes, pin `phpstan/phpstan` and `szepeviktor/phpstan-wordpress` with `php-tool-constraint.mjs` to the PHP that will run analyse.
-- JS lint: if the user named this layer, read `references/js-lint.md`. Ask `Use existing wp-scripts lint:js where it exists, and tools/js-lint (ESLint + WordPress plugin) for other first-party JS` / `Not now`. Skip hashed/minified/vendor files. Do not add ESLint to each plugin `package.json`. Do not use PHPCS on JS.
+Offer these when the user named the layer, **or** intent was Yes and the matching `qa.offerOnIntent` flag is true, **or** `qa.missing.*` is true on a repo that already has first-party code.
 
-## Tests (optional)
+- PHPStan: read `references/phpstan.md`. Ask `Write tools/phpstan + phpstan.neon.dist + baseline` / `Not now`. After Yes, pin `phpstan/phpstan` and `szepeviktor/phpstan-wordpress` with `php-tool-constraint.mjs`. `paths` may be empty until a non-tiny component exists. Never point PHPStan at Core or third-party.
+- JS lint: read `references/js-lint.md`. Ask `Write tools/js-lint (ESLint + WordPress plugin)` / `Not now`. Use existing `wp-scripts lint:js` where it exists. Skip hashed/minified/vendor files. Do not add ESLint to each plugin `package.json`. Do not use PHPCS on JS. Empty `paths.json` is valid until a non-tiny component has source JS.
 
-Read `references/tests.md` only after the user wants this layer (named PHPUnit, Jest, WP_UnitTestCase, or tests, or they chose a test option below). Do not open it only because audit listed a gap. PHPStan and JS lint stay `Not now` unless the user already named those layers.
+## Tests (optional per layer)
 
-- If `qa.missing.phpunit` is true: ask `Configure a runnable tools/phpunit + phpunit.xml.dist suite` / `Not now`. If config exists but the runner is absent, install its locked Composer dependencies instead of replacing the config. After Yes, `references/tests.md` pins PHPUnit to the PHP that will run tests; do not install an unpinned `phpunit/phpunit`.
-- If `qa.missing.jest` is true: ask `Write tools/js-test (Jest) for first-party JS utilities` / `Not now`.
-- If `qa.missing.wpUnitTestCase` is true: separately ask `Configure WordPress integration tests (wp-phpunit/wp-phpunit + polyfills + bootstrap + dedicated disposable test database)` / `Not now`.
+Read `references/tests.md` after the user wants this layer (named PHPUnit, Jest, WP_UnitTestCase, or tests, intent Yes, or they chose a test option below).
+
+- If `qa.missing.phpunit` or (intent Yes and `qa.offerOnIntent.phpunit`): ask `Configure a runnable tools/phpunit + phpunit.xml.dist suite` / `Not now`. If config exists but the runner is absent, install its locked Composer dependencies instead of replacing the config. After Yes, pin PHPUnit to the PHP that will run tests; do not install an unpinned `phpunit/phpunit`. Directories may stay empty until a non-tiny component gets `<component>/tests/`.
+- If `qa.missing.jest` or (intent Yes and `qa.offerOnIntent.jest`): ask `Write tools/js-test (Jest)` / `Not now`.
+- If `qa.missing.wpUnitTestCase` or (intent Yes and `qa.offerOnIntent.wpUnitTestCase`): separately ask `Configure WordPress integration tests (wp-phpunit/wp-phpunit + polyfills + bootstrap + dedicated disposable test database)` / `Not now`.
 - If the user named PHPUnit, Jest, or tests without an audit run, ask only the named runner.
 
-`WP_UnitTestCase` is not a standalone install. Read `references/tests.md` after approval and provision the WordPress integration layer it describes. Never infer database credentials, print passwords, or point the suite at a development/production database. `Not now` is valid; test layers are not required like PHPCS.
+`WP_UnitTestCase` is not a standalone install. Read `references/tests.md` after approval and provision the WordPress integration layer it describes. Never infer database credentials, print passwords, or point the suite at a development/production database. `Not now` is valid for test layers; the QA-loop rule is not.
+
+## New non-tiny component (not a full audit)
+
+When this turn created a new **non-tiny** first-party theme or plugin, do not run `audit.mjs`. Register the new folder (and PHP prefix family) in existing `phpcs.xml.dist`, `phpstan.neon.dist`, `phpunit.xml.dist`, and JS lint/Jest configs. Create `<component>/tests/` if PHPUnit exists. Do not invent a behavior test. Tiny scaffolds skip registration. If those configs are missing, ask the same toolbox questions as intent Yes.
 
 ## OpenSpec (optional)
 
@@ -88,14 +105,13 @@ Ask how to enable OpenSpec. Enabling is not folders-only: global CLI if missing,
 
 Read `references/cursor-rules.md` only after the user wants this layer.
 
-If `rules.missing.qaLoop` is true, ask how to run checks:
+If `rules.missing.qaLoop` is true, the QA loop is **required**. Ask only the mode. Do not offer `Not now`:
 
 - `task` (default) — when the agent is developing: run gates on changed first-party files before finishing (self-correction)
 - `every-change` — after every first-party file write in the same turn
 - `manual` — only when the user asks to run phpcs, phpstan, lint, or tests
-- `Not now`
 
-Then write only the approved mode:
+Then write the approved mode:
 
 ```bash
 node scripts/write-cursor-rule.mjs --confirm --root "/absolute/wp-root" --id qa-loop --mode task
@@ -147,10 +163,11 @@ Global PHPCS (only the list the user approved):
 node scripts/install-phpcs.mjs --confirm --global
 ```
 
-Repo `phpcs.xml.dist` (only confirmed first-party files and prefixes):
+Repo `phpcs.xml.dist` (confirmed first-party files, or empty files after intent Yes):
 
 ```bash
 node scripts/write-phpcs-config.mjs --confirm --root "/absolute/wp-root" --prefixes "Supernova,sn_" --files "wp-content/themes/foo"
+node scripts/write-phpcs-config.mjs --confirm --root "/absolute/wp-root" --prefixes "Acme,acme_" --allow-empty-files
 ```
 
 ## After install

@@ -1,0 +1,13 @@
+includes:
+    - tools/phpstan/vendor/szepeviktor/phpstan-wordpress/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    paths: []
+    excludePaths:
+        - tools/
+        - vendor/(?)
+        - node_modules/(?)
+    parallel:
+        maximumNumberOfProcesses: 1

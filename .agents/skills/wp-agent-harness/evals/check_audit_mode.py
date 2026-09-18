@@ -46,6 +46,10 @@ REQUIRED_IN_SKILL = (
         "under `.agents/skills` or `.cursor/skills`",
         "disable-openspec-auto-invoke.mjs",
     "includes the pin in the same turn",
+    "qa.emptyFirstParty",
+    "qa.offerOnIntent",
+    "Do not offer Not now",
+    "new **non-tiny** first-party theme or plugin",
 )
 FORBIDDEN_IN_SKILL = (
     "3. **Audit mode only**",

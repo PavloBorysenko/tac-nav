@@ -1,0 +1,16 @@
+{
+	"name": "tacnav",
+	"version": "0.1.0",
+	"private": true,
+	"description": "TacNav child theme of Twenty Twenty-Five.",
+	"author": "SND Team",
+	"license": "GPL-2.0-or-later",
+	"scripts": {
+		"build": "wp-scripts build",
+		"start": "wp-scripts start",
+		"lint:js": "wp-scripts lint-js"
+	},
+	"devDependencies": {
+		"@wordpress/scripts": "^30.26.0"
+	}
+}

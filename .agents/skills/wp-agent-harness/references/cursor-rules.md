@@ -20,7 +20,7 @@ Frontmatter must include `harness: qa-loop` and `qaLoop: <mode>` so audit can de
 | `every-change` | After each first-party file write in the same turn. |
 | `manual` | Only when the user asks to run phpcs, phpstan, or lint. |
 
-If the rule is missing, ask which mode to write. Do not assume `every-change`. Default offer is `task`.
+The QA loop is required. If the rule is missing, ask only the mode. Do not offer `Not now`. Do not assume `every-change`. Default offer is `task`.
 
 JS lint on a feature task must not drown in legacy `linebreak-style` / Prettier. See `references/js-lint.md`. Do not `--fix` a whole file for those rules unless the user asked to format.
 

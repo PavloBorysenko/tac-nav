@@ -1,0 +1,11 @@
+{
+  "name": "site-js-test",
+  "private": true,
+  "description": "Jest toolbox for first-party WordPress JS utilities. Roots stay empty until a component has tests.",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^30.5.1"
+  }
+}

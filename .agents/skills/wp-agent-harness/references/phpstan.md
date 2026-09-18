@@ -37,4 +37,4 @@ php tools/phpstan/vendor/bin/phpstan analyse -c phpstan.neon.dist --generate-bas
 
 Then `includes: phpstan-baseline.neon` in the dist file. Analyse must be clean. New code must not grow the baseline.
 
-`paths` must be first-party only. Never point PHPStan at `wp-admin`, `wp-includes`, or third-party plugins.
+`paths` must be first-party only. Never point PHPStan at `wp-admin`, `wp-includes`, or third-party plugins. After intent Yes with no custom code yet, `paths` may be an empty list. When this turn created a new **non-tiny** first-party theme or plugin, add that folder to the existing `phpstan.neon.dist`. Tiny scaffolds skip that edit.

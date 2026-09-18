@@ -1,21 +1,19 @@
-# TAC Nav WordPress site
+# TAC Nav
 
 ## What this is
 
-This is a local WordPress site in the TAC Nav Local folder. On disk it still uses only the default Twenty Twenty-Three, Twenty Twenty-Four, and Twenty Twenty-Five themes. There are no plugins installed and no custom theme folder yet.
+TAC Nav is a Local WordPress site. Visitors see a child theme named TacNav on top of the default Twenty Twenty-Five block theme. The first visible customization is a light khaki (`#D4CBB3`) header and footer. Default WordPress themes still exist on disk but are not this project's design surface.
 
 ## Who owns what
 
-The repository is set up to own a custom theme named `emg-develop` once that folder exists. Right now that theme is missing, so there is no project-owned theme or plugin to change. Default WordPress themes and Core are not project-owned.
-
-The relationship between the TAC Nav site name and the `emg-develop` theme name is not confirmed.
+The project owns the `tacnav` child theme. WordPress Core and the bundled Twenty Twenty-Three, Twenty Twenty-Four, and Twenty Twenty-Five themes are not project-owned and should not be edited for site look and feel. There is no custom plugin yet.
 
 ## How work usually happens
 
-Editors would work in wp-admin on a standard WordPress install. There is no custom editorial flow, form, or business plugin to describe yet.
+Editors can still use the Site Editor on TacNav. Theme-owned header and footer color is a default; saved Site Editor style customizations can override it. New theme JavaScript or blocks should be added through the theme's WordPress scripts toolchain, not by editing the parent theme.
 
 ## What to know before changing it
 
-- Do not edit WordPress Core or the default Twenty* themes.
-- Wait until `emg-develop` (or another agreed custom slug) exists before treating theme or plugin files as this project's code.
-- This is a local development site, not a documented production deploy.
+- Activate the TacNav theme in Appearance → Themes before expecting the khaki header and footer on the live site.
+- Switching back to Twenty Twenty-Five drops child overrides.
+- Do not edit files inside the default `twenty*` theme folders.
