@@ -1,0 +1,90 @@
+.tacnav-map-picker {
+	height: 360px;
+	width: 100%;
+	margin: 0 0 1rem;
+	border: 1px solid #c3c4c7;
+	z-index: 1;
+}
+
+.tacnav-palette-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin: 0 0 1.25rem;
+}
+
+.tacnav-palette-item {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	margin: 0;
+	padding: 0.35rem 0.5rem;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.tacnav-palette-item img {
+	width: 32px;
+	height: 32px;
+	object-fit: contain;
+	background: rgba(255, 255, 255, 0.22);
+	border-radius: 50%;
+}
+
+.tacnav-palette-fallback {
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.22);
+	color: #374151;
+	border-radius: 50%;
+}
+
+.tacnav-roster-count {
+	font-weight: 600;
+}
+
+.tacnav-roster-filter {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.tacnav-player-list {
+	margin: 0.75rem 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tacnav-roster-row {
+	margin: 0 0 0.25rem;
+	padding: 0.2rem 0.35rem;
+}
+
+.tacnav-roster-row.is-selected {
+	background: #c8e6c9;
+}
+
+.tacnav-roster-row label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.tacnav-roster-avatar {
+	width: 32px;
+	height: 32px;
+	flex: 0 0 32px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.tacnav-roster-avatar-empty {
+	box-sizing: border-box;
+	border: 1px solid #c3c4c7;
+	background: #f6f7f7;
+}

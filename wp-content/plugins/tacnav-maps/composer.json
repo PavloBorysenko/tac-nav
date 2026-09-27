@@ -1,0 +1,10 @@
+{
+	"name": "tacnav/maps",
+	"description": "Staff map studio for TacNav.",
+	"license": "GPL-2.0-or-later",
+	"autoload": {
+		"psr-4": {
+			"TacNav\\Maps\\": "app/"
+		}
+	}
+}

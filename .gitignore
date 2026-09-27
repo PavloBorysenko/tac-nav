@@ -43,8 +43,11 @@
 /wp-content/themes/tacnav/build/
 
 # ===================================
-# Custom (Modified) Plugins
+# Custom Plugins
 # ===================================
+
+!/wp-content/plugins/tacnav-maps/
+/wp-content/plugins/tacnav-maps/build/
 
 # CI-generated plugin assets
 /wp-content/plugins/*/build/
@@ -83,6 +86,11 @@ Desktop.ini
 
 node_modules/
 vendor/
+!/wp-content/plugins/tacnav-maps/vendor/autoload.php
+!/wp-content/plugins/tacnav-maps/vendor/composer/
+!/wp-content/plugins/tacnav-maps/vendor/composer/**
+!/wp-content/plugins/tacnav-maps/assets/vendor/
+!/wp-content/plugins/tacnav-maps/assets/vendor/**
 
 # QA tool caches
 /tools/phpunit/.phpunit.cache/

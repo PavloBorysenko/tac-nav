@@ -71,7 +71,7 @@ The canvas SHALL provide a coordinate tool separate from add and measure. In tha
 
 ### Requirement: Staff filters and basemaps
 
-The canvas SHALL filter the already-authorized object set by belonging team and SHALL offer a control to include expired objects. A labels control SHALL toggle titles on the map face. Staff SHALL be able to switch between an unlabeled satellite basemap and a street diagram. The map's default basemap SHALL be unlabeled satellite unless staff saved a different default on the map form.
+The canvas SHALL filter the already-authorized object set by belonging team and SHALL offer a control to include expired objects. A labels control SHALL toggle titles on the map face for every geometry kind. Staff SHALL be able to keep the unlabeled satellite basemap and optionally overlay place-name labels. The map's default SHALL be unlabeled satellite unless staff saved the labels overlay on the map form.
 
 #### Scenario: Expired objects stay hidden until requested
 

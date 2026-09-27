@@ -10,6 +10,7 @@ Read only the links whose condition matches the current task.
 ## Key functionality
 
 - [TacNav](../wp-content/themes/tacnav/docs/catalog.md) — read only when changing stylesheet `tacnav`
+- [TacNav Maps](../wp-content/plugins/tacnav-maps/docs/catalog.md) — read only when changing plugin slug `tacnav-maps`
 
 ## Human
 

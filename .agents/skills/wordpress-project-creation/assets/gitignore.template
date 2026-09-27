@@ -1,0 +1,101 @@
+# ===================================
+# WordPress Core
+# ===================================
+/wp-admin/
+/wp-includes/
+/.well-known/
+
+# WordPress root files
+/*.php
+/*.html
+/*.txt
+/*.log
+/*.zip
+
+# Local and sensitive configuration
+/wp-config.php
+/.htaccess
+/.user.ini
+/.env
+/.env.*
+!/.env.example
+
+# ===================================
+# WordPress Content
+# ===================================
+
+# Ignore generated and third-party content by default
+/wp-content/*
+
+# Allow theme and plugin directories
+!/wp-content/themes/
+!/wp-content/plugins/
+
+# Ignore installed themes and plugins
+/wp-content/themes/*
+/wp-content/plugins/*
+
+# ===================================
+# Custom Theme
+# ===================================
+
+# Repeat one block per first-party theme the user named:
+# !/wp-content/themes/THEME_SLUG/
+# /wp-content/themes/THEME_SLUG/node_modules/
+# /wp-content/themes/THEME_SLUG/vendor/
+# /wp-content/themes/THEME_SLUG/build/
+# /wp-content/themes/THEME_SLUG/dist/
+# /wp-content/themes/THEME_SLUG/*.log
+
+# ===================================
+# Custom Plugins
+# ===================================
+
+# Repeat one block per first-party plugin the user named:
+# !/wp-content/plugins/PLUGIN_SLUG/
+# /wp-content/plugins/PLUGIN_SLUG/node_modules/
+# /wp-content/plugins/PLUGIN_SLUG/vendor/
+
+# CI-generated plugin assets
+/wp-content/plugins/*/build/
+/wp-content/plugins/*/dist/
+
+# ===================================
+# Optional MU Plugins
+# ===================================
+
+# Uncomment when custom MU plugins are introduced:
+# !/wp-content/mu-plugins/
+# /wp-content/mu-plugins/*
+# !/wp-content/mu-plugins/PROJECT-loader.php
+
+# ===================================
+# IDE, OS And Temporary Files
+# ===================================
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+
+*.swp
+*.swo
+*~
+*.tmp
+*.temp
+*.log
+
+# ===================================
+# Dependencies
+# ===================================
+
+node_modules/
+vendor/
+
+# Keep dependency lock files in Git:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# composer.lock

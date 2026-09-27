@@ -39,7 +39,7 @@ The system SHALL store each map as a catalog item with title, description, cente
 
 ### Requirement: Teams are global and few
 
-The system SHALL store teams as a global catalog shared by every map. A team SHALL have title, description, color, a team icon, an icon palette (subset of the icon library), and a list of quick-add presets. Each preset SHALL define every geo-object field except coordinates, including kind, icon from that team's palette, title, and optional description and time-to-live.
+The system SHALL store teams as a global catalog shared by every map. A team SHALL have title, description, color, a unique team badge stored as the featured image, an icon palette (subset of the icon library), and a list of quick-add presets. Each preset SHALL define every geo-object field except coordinates, including kind, icon from that team's palette, title, and optional description and time-to-live. A new preset SHALL default time-to-live to 3 minutes.
 
 #### Scenario: Same teams on every map
 

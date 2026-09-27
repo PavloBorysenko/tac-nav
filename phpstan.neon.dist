@@ -4,8 +4,14 @@ includes:
 
 parameters:
     level: 5
-    paths: []
+    bootstrapFiles:
+        - wp-content/plugins/tacnav-maps/phpstan-bootstrap.php
+    paths:
+        - wp-content/plugins/tacnav-maps
     excludePaths:
+        - wp-content/plugins/tacnav-maps/tests
+        - wp-content/plugins/tacnav-maps/phpstan-bootstrap.php
+        - wp-content/plugins/tacnav-maps/vendor
         - tools/
         - vendor/(?)
         - node_modules/(?)

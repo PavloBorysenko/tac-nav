@@ -6,6 +6,7 @@
          xsi:noNamespaceSchemaLocation="tools/phpunit/vendor/phpunit/phpunit/phpunit.xsd">
   <testsuites>
     <testsuite name="first-party">
+      <directory>wp-content/plugins/tacnav-maps/tests</directory>
     </testsuite>
   </testsuites>
 </phpunit>

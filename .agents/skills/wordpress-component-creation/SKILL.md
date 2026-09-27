@@ -6,17 +6,20 @@ description: >-
   namespace, bootstrap layout, .gitignore allowlist, and component docs when
   the docs skill is present. Use when the user asks to create, scaffold, or
   add a new custom theme or custom plugin. Also use when they answer a prefix,
-  author, slug, or PSR-4 question for that new component. Do not use for
-  editing an existing component, adding a class or file to one, installing a
-  third-party plugin, ordinary WordPress coding, docs-only work, audit, tests,
-  OpenSpec, Drupal, or starting a new WordPress project.
+  author, slug, or PSR-4 question for that new component. Also use when
+  /opsx:propose or /opsx:apply (or proposing or applying an OpenSpec change)
+  creates a new custom theme or plugin: propose records layout in design.md
+  and does not write PHP. Do not use for editing an existing component, adding
+  a class or file to one, installing a third-party plugin, ordinary WordPress
+  coding, docs-only work, audit, tests, /opsx:archive, /opsx:explore, Drupal,
+  or starting a new WordPress project.
 ---
 
 # WordPress component creation
 
-Open this skill when the user asked to create, scaffold, or add a **new** custom theme or custom plugin, or when they answer a prefix, author, slug, or PSR-4 question for that new component. Do not open it to edit an existing component, add a class, write docs, audit, test, or start a new WordPress project.
+Open this skill when the user asked to create, scaffold, or add a **new** custom theme or custom plugin, when they answer a prefix, author, slug, or PSR-4 question for that new component, or when `/opsx:propose` or `/opsx:apply` creates one. Do not open it to edit an existing component, add a class, write docs, audit, test, `/opsx:archive`, `/opsx:explore`, or start a new WordPress project.
 
-Create the component inside the existing WordPress git root. Do not init a nested git repo. Official `wp-plugin-development` and `wp-block-themes` cover hooks and `theme.json`; this skill covers placement, identifiers, bootstrap shape, and docs handoff.
+Create the component inside the existing WordPress git root. Do not init a nested git repo. Official `wp-plugin-development` and `wp-block-themes` cover hooks and `theme.json` **after** this skill resolves placement, identifiers, and autoload. They must not default a new plugin to `includes/class-*.php` while PSR-4 is unanswered.
 
 ## Load only what is needed
 
@@ -37,10 +40,12 @@ If `.agents/skills/wordpress-project-documentation/SKILL.md` or `.cursor/skills/
 4. If theme vs plugin, classic vs block vs child, or the feature name is unclear, ask. Do not guess. Do not put the component in `mu-plugins` unless asked.
 5. Classify **tiny**: one responsibility and no CPT, REST, or admin UI (tiny settings screens are allowed). Otherwise not-tiny.
 6. Resolve **author** and **prefix** with the algorithm below. Stop and ask rather than invent. Asking is not the end of this skill.
-7. When author, prefix, slug, and tiny/not-tiny are known (from siblings or from answers **this turn**), build one identifier family, allowlist the new folder in `.gitignore`, Read the matching layout file, then write the scaffold. Do not write PHP until that layout file is Read.
-8. After the code exists, hand off docs (section below). Then report a phpcs-prefix gap if there is one. If `wp-agent-harness` is present, continue its develop gates. Do not open `wordpress-testing` or OpenSpec from this skill. Do not activate the plugin with WP-CLI unless asked.
+7. Resolve PSR-4 (not-tiny plugin) and any third-party JS/CSS library host. Ask when those are unresolved. Do not pick `includes/class-*.php` or a CDN silently.
+8. If this turn is `/opsx:propose` (or writing OpenSpec `design.md` only): record author, prefix, slug, tiny/not-tiny, PSR-4 vs classic includes, and local vendor JS/CSS in `design.md`. Do not write PHP. Do not allowlist `.gitignore`. Do not create docs. Do not let official `wp-plugin-development` write classic `includes/class-*.php` into the design while PSR-4 is unanswered. Stop until apply.
+9. If this turn is a direct scaffold or `/opsx:apply`: when author, prefix, slug, tiny/not-tiny, and PSR-4 are known (from siblings, `design.md`, or answers **this turn**), build one identifier family, allowlist the new folder in `.gitignore`, Read the matching layout file, then write the scaffold. Do not write PHP until that layout file is Read. Do not write `includes/class-*.php` when PSR-4 was chosen or is still unanswered.
+10. After the code exists, hand off docs (section below). Then register QA paths if the component is **not-tiny** (section below). If `wp-agent-harness` is present, continue its develop gates. Do not start an OpenSpec change from this skill. Do not activate the plugin with WP-CLI unless asked.
 
-If a previous turn of this conversation already asked for author, prefix, feature slug, theme vs plugin, or PSR-4, and the user answered, **this turn is still this skill**. Resume at step 7. Do not skip the layout file or docs because the create/scaffold sentence was last turn.
+If a previous turn of this conversation already asked for author, prefix, feature slug, theme vs plugin, or PSR-4, and the user answered, **this turn is still this skill**. Resume at step 8 or 9. Do not skip the layout file or docs because the create/scaffold sentence was last turn.
 
 ## Author and prefix
 
@@ -81,7 +86,11 @@ Thin hooks are not “any logic on `init`”. CPT, meta, checkout, and SQL belon
 
 ## PSR-4
 
-For a **not-tiny plugin** only: if a sibling already has Composer autoload, copy that tree. If none does, ask. Do not add `composer.json` or `app/` to a tiny plugin or a classic/child theme. Do not put phpcs, PHPStan, PHPUnit, or Jest in the component `composer.json`.
+For a **not-tiny plugin** only: if a sibling already has Composer autoload, copy that tree. If none does, ask — including during `/opsx:propose`, before `design.md` locks an autoload. Do not add `composer.json` or `app/` to a tiny plugin or a classic/child theme. Do not put phpcs, PHPStan, PHPUnit, or Jest in the component `composer.json`.
+
+## Third-party frontend libraries
+
+Prefer a local copy (`assets/vendor/` or npm, then `wp_enqueue_*` that local file). Do not enqueue unpkg, jsDelivr, cdnjs, or another CDN unless the user named that remote URL. During propose, write the local-vendor choice into `design.md`; do not record a CDN URL as the default.
 
 ## Headers and defaults
 
@@ -104,6 +113,8 @@ Add an explicit `.gitignore` allowlist for the new folder. Match the existing ig
 
 After the scaffold files exist, if the documentation skill file exists, Read it and create the **component** `docs/catalog.md`. A prefix or author answer this turn does not skip that Read. If root `docs/catalog.md` exists, add a hop to the new component. If root catalog is missing, do not create it. If the documentation skill is missing, still write the code scaffold; do not invent docs and do not switch to a harness audit.
 
-## PHPCS
+## PHPCS and QA registration
 
-Do not create or rewrite `phpcs.xml.dist`. That file is harness provision. The phpcs prefix list (`Acme,acme_`) is not the folder slug. If `phpcs.xml.dist` exists and does not yet list this PHP prefix family (typical for the first custom component), tell the user. Do not install PHPCS from this skill.
+Do not create `phpcs.xml.dist` from scratch. That file is harness provision. The phpcs prefix list (`Acme,acme_`) is not the folder slug. Do not put phpcs, PHPStan, PHPUnit, or Jest in the component `composer.json`.
+
+After a **not-tiny** scaffold, if existing repo configs are present, add this folder (and PHP prefix family) to `phpcs.xml.dist`, `phpstan.neon.dist`, `phpunit.xml.dist`, and JS lint/Jest configs. Create `<component>/tests/` if PHPUnit exists. Do not invent a behavior test. Tiny scaffolds skip that registration. If those configs are missing, ask the same toolbox questions as harness intent Yes; do not run `audit.mjs`. If `phpcs.xml.dist` exists and does not yet list this PHP prefix family, add it for not-tiny or tell the user for tiny. Do not install PHPCS from this skill.

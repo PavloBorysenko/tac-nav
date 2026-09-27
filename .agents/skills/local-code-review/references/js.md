@@ -7,6 +7,7 @@ Read this file only when `review-scope.mjs` put `references/js.md` in `read[]`. 
 - Put new behavior next to this repo's current JS owner (same entry, same enqueue).
 - Do not add a new file or bundle for a few lines in an existing script.
 - Enqueue with `wp_enqueue_script`. Do not dump a script tag in a PHP or HTML template.
+- Vendor third-party libraries locally (`assets/vendor/` or npm). `[must-fix]` a new import or script URL from unpkg, jsDelivr, cdnjs, or another CDN unless the user named that remote URL.
 - Do not invent a framework, bundler, or store unless the task asked.
 - The same keys must not live in two hand-maintained lists. Smell: `KEYS = ['a','b','c']` in one function and `LABELS = { a: 'A', b: 'B', c: 'C' }` in another. Adding a key in only one list drifts. `[must-fix]`: one object, derive keys (`Object.keys`). Do not flag coincidental duplicate strings or a slug used in two calls.
 

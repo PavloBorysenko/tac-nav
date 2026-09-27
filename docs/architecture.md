@@ -8,11 +8,11 @@ Record which WordPress components this repository owns, and which paths are Core
 
 This git root is a Local WordPress site. WordPress Core, `wp-config.php`, and generated content are ignored.
 
-The first-party theme is `tacnav`, a child of Twenty Twenty-Five. Default WordPress themes `twentytwentythree`, `twentytwentyfour`, and `twentytwentyfive` remain on disk and are not project-owned. Do not document or edit them as custom components.
+The first-party theme is `tacnav`, a child of Twenty Twenty-Five. The first-party plugin is `tacnav-maps`. Default WordPress themes `twentytwentythree`, `twentytwentyfour`, and `twentytwentyfive` remain on disk and are not project-owned. Do not document or edit them as custom components.
 
-`.gitignore` allowlists `wp-content/themes/tacnav/`. There is no custom plugin allowlist: `wp-content/plugins/*` stays ignored. `wp-content/plugins/` is empty. There are no must-use plugins.
+`.gitignore` allowlists `wp-content/themes/tacnav/` and `wp-content/plugins/tacnav-maps/`, plus Composer autoload files under that plugin `vendor/` and the guest QR script under `assets/vendor/`. There are no must-use plugins.
 
-`tacnav` is tiny: phpcs applies to its PHP; do not register PHPStan or PHPUnit paths until a non-tiny first-party component exists. Theme JavaScript uses `@wordpress/scripts` inside the theme folder.
+`tacnav` is tiny: phpcs applies to its PHP; do not register PHPStan or PHPUnit paths for the theme. `tacnav-maps` is not-tiny: PHPStan and PHPUnit paths include that plugin. Theme JavaScript uses `@wordpress/scripts` inside the theme folder.
 
 Default `twenty*` themes, Core, and any later disk-installed third-party plugins are out of scope unless git tracks them and the user confirms the slug.
 
@@ -24,6 +24,7 @@ Do not infer first-party ownership from a plugin or theme merely existing under 
 
 ## Implementation references
 
-- `.gitignore` — Core, content, and plugin ignore rules plus the `tacnav` theme allowlist
+- `.gitignore` — Core, content, and plugin ignore rules plus the `tacnav` theme and `tacnav-maps` plugin allowlists
 - `wp-content/themes/tacnav/` — first-party child theme
+- `wp-content/plugins/tacnav-maps/` — first-party map hub plugin
 - `.cursor/rules/wp-agent-harness-scope.mdc` — edit limit: Core and unconfirmed plugins are off-limits

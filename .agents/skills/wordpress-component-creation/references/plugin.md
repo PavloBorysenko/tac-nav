@@ -53,3 +53,5 @@ If siblings already define Composer PSR-4, copy their directory name (`app/`, `s
 ```
 
 Do not run `composer require` for QA tools. Do not add Settings API, REST, or CPT from this file; use official `wp-plugin-development` after the scaffold exists.
+
+Vendor third-party JS/CSS under this plugin (`assets/vendor/` or npm). Enqueue the local file. Do not enqueue unpkg, jsDelivr, cdnjs, or another CDN unless the user named that remote URL.

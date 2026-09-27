@@ -12,7 +12,7 @@ New file, class, hook, or growth of `functions.php`:
 - Query and data: existing plugin or class owner, not a classic theme PHP template.
 - Persist and sanitize: the owner class or include. Not inside the view.
 - Presentation: classic PHP template, plugin view, or block — not a new container. More than two HTML lines next to persist/sanitize belong in `templates/` (or this repo's existing views folder). Domain subfolders (`admin/`, `shortcode/`) only when the component has those surfaces. Follow an existing views tree; do not invent a second one. Block HTML lives in `templates/` / `parts/` and is reviewed from `references/html.md` when `read[]` names it.
-- Assets: `wp_enqueue_*`, not dumped in a template.
+- Assets: `wp_enqueue_*`, not dumped in a template. Third-party JS/CSS must be a local file (`assets/vendor/` or npm). `[must-fix]` enqueue of unpkg, jsDelivr, cdnjs, or another CDN unless the user named that remote URL.
 
 Extracting that view is not overengineering. Extracting a service, interface, or helper for a one-file logic fix still is. One or two HTML lines in a persist function may stay.
 

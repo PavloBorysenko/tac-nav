@@ -83,7 +83,7 @@ Suggested hook names (prefix can match the plugin): `tacnav_geo_object_visible`,
 
 Lists/forms for maps, teams, and icons use wp-admin (Organizer menus besides TacNav can be hidden later). The editor is a capability-gated front-end page so slice 2 can reuse it on a phone. Canvas does not write center/zoom.
 
-Basemaps: default unlabeled satellite via Esri World Imagery; optional OSM streets. Attribution required. Leaflet is provider-agnostic; if Esri terms become unusable, swap the satellite URL without changing object specs.
+Basemaps: default unlabeled satellite via Esri World Imagery; optional Esri place-name overlay. Attribution required. Leaflet is provider-agnostic; if Esri terms become unusable, swap the tile URLs without changing object specs.
 
 ### 7. Drawing and tools
 
