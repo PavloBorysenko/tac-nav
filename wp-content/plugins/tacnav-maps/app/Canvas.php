@@ -222,7 +222,12 @@ class Canvas {
 	 * @return void
 	 */
 	private static function render( $map, $resolved ) {
-		$mode = (string) $resolved['kind'];
+		$mode       = (string) $resolved['kind'];
+		$logo_id    = (int) get_theme_mod( 'custom_logo' );
+		$logo_src   = $logo_id ? wp_get_attachment_image_url( $logo_id, 'full' ) : false;
+		$logo_url   = is_string( $logo_src ) ? $logo_src : '';
+		$site_name  = (string) get_bloginfo( 'name' );
+		$site_front = home_url( '/' );
 		include TACNAV_MAPS_DIR . 'templates/canvas.php';
 	}
 }

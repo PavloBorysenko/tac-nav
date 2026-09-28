@@ -37,7 +37,26 @@
 	background: rgba(17, 24, 39, 0.6);
 	padding: 0.4rem;
 	border-radius: 999px;
-	max-width: calc(100vw - 1rem);
+	max-width: calc(100vw - 8.5rem);
+}
+
+.tacnav-site-mark {
+	position: absolute;
+	left: 0.75rem;
+	bottom: 0.75rem;
+	z-index: 500;
+	display: flex;
+	padding: 0.4rem;
+	border-radius: 999px;
+	background: rgba(54, 68, 40, 0.6);
+	line-height: 0;
+	text-decoration: none;
+}
+
+.tacnav-site-mark img {
+	display: block;
+	height: 32px;
+	width: auto;
 }
 
 .tacnav-maptools {

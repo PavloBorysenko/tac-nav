@@ -90,6 +90,26 @@ class Account {
 			}
 		}
 
+		/*
+		 * Block themes print the import map in wp_head, and only for modules
+		 * already discovered. Render the template parts first so header and
+		 * footer blocks enqueue their styles and script modules in time.
+		 */
+		ob_start();
+		block_header_area();
+		$header_html = ob_get_clean();
+		ob_start();
+		block_footer_area();
+		$footer_html = ob_get_clean();
+		$header_html = is_string( $header_html ) ? $header_html : '';
+		$footer_html = is_string( $footer_html ) ? $footer_html : '';
+		wp_enqueue_style(
+			'tacnav-player-account',
+			TACNAV_MAPS_URL . 'assets/player-account.css',
+			array(),
+			TACNAV_MAPS_VERSION
+		);
+
 		include TACNAV_MAPS_DIR . 'templates/player-account.php';
 		exit;
 	}

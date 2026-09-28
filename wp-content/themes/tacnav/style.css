@@ -11,3 +11,53 @@ Text Domain: tacnav
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
+
+header.wp-block-template-part,
+footer.wp-block-template-part {
+	background-image: url("assets/topographic.png");
+}
+
+header.wp-block-template-part a,
+footer.wp-block-template-part a {
+	font-weight: 600;
+	text-decoration: none;
+	border-bottom: 4px solid #000;
+}
+
+header.wp-block-template-part a:hover,
+footer.wp-block-template-part a:hover,
+header.wp-block-template-part a:focus-visible,
+footer.wp-block-template-part a:focus-visible {
+	background-color: rgba(90, 82, 68, 0.15);
+}
+
+.tacnav-entry {
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: calc(100vh - 12rem);
+}
+
+.tacnav-entry .wp-block-buttons {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 1rem;
+}
+
+.wp-block-site-logo.is-default-size img.custom-logo {
+    height: auto;
+    width: 80px;
+}
+
+header.wp-block-template-part a.custom-logo-link, footer.wp-block-template-part a.custom-logo-link {
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: none;
+	border-radius: 50%;
+    background: rgba(54, 68, 40, 0.6);
+}
+header.wp-block-template-part a.custom-logo-link:hover, footer.wp-block-template-part a.custom-logo-link:hover {
+    background: rgba(54, 68, 40, 0.8);
+}

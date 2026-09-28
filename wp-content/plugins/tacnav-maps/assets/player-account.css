@@ -1,0 +1,72 @@
+.tacnav-account-card {
+	box-sizing: border-box;
+	margin-top: 1.5rem;
+	margin-bottom: 1.5rem;
+	padding: 1.25rem;
+	border: 1px solid currentColor;
+}
+
+.tacnav-account-card h2,
+.tacnav-account-card h3 {
+	margin-top: 0;
+}
+
+.tacnav-account-card label {
+	display: block;
+	margin: 0.75rem 0;
+}
+
+.tacnav-account-card input[type="text"],
+.tacnav-account-card input[type="email"],
+.tacnav-account-card input[type="password"],
+.tacnav-account-card input[type="file"] {
+	display: block;
+	width: 100%;
+	max-width: 24rem;
+	box-sizing: border-box;
+	margin-top: 0.35rem;
+	font: inherit;
+	padding: 0.5rem 0.75rem;
+}
+
+.tacnav-account-avatar {
+	display: block;
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.tacnav-account-mate .tacnav-account-avatar {
+	width: 40px;
+	height: 40px;
+	flex: 0 0 40px;
+}
+
+.tacnav-account-avatar-empty {
+	box-sizing: border-box;
+	border: 1px solid currentColor;
+}
+
+.tacnav-account-mates,
+.tacnav-account-maps {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.tacnav-account-mate,
+.tacnav-account-maps li {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0.5rem 0;
+}
+
+.tacnav-error {
+	color: #9b1c1c;
+}
+
+.tacnav-notice {
+	color: #14532d;
+}

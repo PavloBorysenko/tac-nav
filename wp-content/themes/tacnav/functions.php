@@ -20,6 +20,23 @@ function tacnav_load_textdomain() {
 add_action( 'after_setup_theme', 'tacnav_load_textdomain' );
 
 /**
+ * Load the child theme stylesheet.
+ *
+ * A block theme does not enqueue style.css by itself.
+ *
+ * @return void
+ */
+function tacnav_enqueue_chrome() {
+	wp_enqueue_style(
+		'tacnav-chrome',
+		get_stylesheet_uri(),
+		array(),
+		wp_get_theme()->get( 'Version' )
+	);
+}
+add_action( 'wp_enqueue_scripts', 'tacnav_enqueue_chrome' );
+
+/**
  * Hide player menu links that do not match the current session.
  *
  * Guest: keep /tacnav-player/#login and #register. Signed-in: keep the plain cabinet URL.

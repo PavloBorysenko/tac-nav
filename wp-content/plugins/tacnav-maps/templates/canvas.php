@@ -4,8 +4,11 @@
  *
  * @package TacNav_Maps
  *
- * @var array<string, mixed> $map  Map passport.
- * @var string               $mode staff|player|guest.
+ * @var array<string, mixed> $map        Map passport.
+ * @var string               $mode       staff|player|guest.
+ * @var string               $logo_url   Custom logo URL, or empty.
+ * @var string               $site_name  Site name used as the logo accessible name.
+ * @var string               $site_front Site front URL.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -31,6 +34,11 @@ defined( 'ABSPATH' ) || exit;
 				<button type="button" class="tacnav-btn" data-tacnav-live></button>
 			<?php endif; ?>
 		</div>
+		<?php if ( '' !== $logo_url ) : ?>
+		<a class="tacnav-site-mark" href="<?php echo esc_url( $site_front ); ?>">
+			<img src="<?php echo esc_url( $logo_url ); ?>" alt="<?php echo esc_attr( $site_name ); ?>" />
+		</a>
+		<?php endif; ?>
 		<div class="tacnav-toolbar" data-tacnav-toolbar>
 			<?php if ( 'guest' !== $mode ) : ?>
 			<div class="tacnav-add-wrap">
