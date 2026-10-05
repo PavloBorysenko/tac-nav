@@ -41,11 +41,12 @@ class Geo_Store {
 	/**
 	 * Update a geo object.
 	 *
-	 * @param int                  $id   Object ID.
-	 * @param array<string, mixed> $data Fields to merge.
+	 * @param int                  $id       Object ID.
+	 * @param array<string, mixed> $data     Fields to merge.
+	 * @param string               $expected Updated-at stamp the editor opened with. Empty skips the check.
 	 * @return true|\WP_Error
 	 */
-	public function update( $id, $data ) {
+	public function update( $id, $data, $expected = '' ) {
 		global $wpdb;
 
 		$existing = $this->get( $id );
@@ -53,21 +54,37 @@ class Geo_Store {
 			return new \WP_Error( 'tacnav_geo_missing', __( 'Geo object not found.', 'tacnav-maps' ), array( 'status' => 404 ) );
 		}
 
+		$expected = sanitize_text_field( (string) $expected );
+		if ( '' !== $expected && ! Picture_Audience::same_stamp( (string) $existing['updated_at'], $expected ) ) {
+			return new \WP_Error( 'tacnav_geo_conflict', __( 'Someone else saved this object.', 'tacnav-maps' ), array( 'status' => 409 ) );
+		}
+
+		unset( $data['updated_at'] );
 		$merged   = array_merge( $existing, $data );
 		$prepared = $this->prepare_row( $merged, false );
 		if ( is_wp_error( $prepared ) ) {
 			return $prepared;
 		}
 
+		$where     = array( 'id' => (int) $id );
+		$where_fmt = array( '%d' );
+		if ( '' !== $expected ) {
+			$where['updated_at'] = $expected;
+			$where_fmt[]         = '%s';
+		}
+
 		$ok = $wpdb->update(
 			Activator::table_name(),
 			$prepared['row'],
-			array( 'id' => (int) $id ),
+			$where,
 			$prepared['formats'],
-			array( '%d' )
+			$where_fmt
 		);
 		if ( false === $ok ) {
 			return new \WP_Error( 'tacnav_geo_update', __( 'Could not update the geo object.', 'tacnav-maps' ), array( 'status' => 500 ) );
+		}
+		if ( 0 === (int) $ok && '' !== $expected ) {
+			return new \WP_Error( 'tacnav_geo_conflict', __( 'Someone else saved this object.', 'tacnav-maps' ), array( 'status' => 409 ) );
 		}
 
 		return true;

@@ -144,8 +144,29 @@ class REST {
 		}
 
 		$resolved = Viewer::resolve( $map, self::token_from_request( $request ) );
+		if ( 'guest' === $resolved['kind'] && ! Picture_Audience::guest_may_refresh( self::token_from_request( $request ), $map_id, isset( $map['team_ids'] ) && is_array( $map['team_ids'] ) ? $map['team_ids'] : array(), wp_salt( 'auth' ) ) ) {
+			return new \WP_Error( 'tacnav_geo_forbidden', __( 'You cannot view this map.', 'tacnav-maps' ), array( 'status' => 403 ) );
+		}
+
 		$include  = 'staff' === $resolved['kind'] && rest_sanitize_boolean( $request->get_param( 'include_expired' ) );
-		return rest_ensure_response( self::visible_objects( $map_id, $include, $resolved ) );
+		$audience = Picture_Audience::key( (string) $resolved['kind'], (int) $resolved['team_id'], $include );
+		$current  = Picture_Version::current( $map_id );
+		$client   = Picture_Version::from_header( $request->get_header( 'if_none_match' ) );
+		$lookup   = new Picture_Lookup( new Transient_Picture_Store() );
+		$result   = $lookup->read(
+			$map_id,
+			$audience,
+			$client,
+			$current,
+			static function () use ( $map_id, $audience ) {
+				return self::objects_for_audience( $map_id, $audience );
+			}
+		);
+
+		$response = new \WP_REST_Response( 304 === $result['status'] ? null : $result['objects'], (int) $result['status'] );
+		$response->header( 'ETag', '"' . (int) $result['version'] . '"' );
+		$response->header( 'Cache-Control', 'private, no-cache' );
+		return $response;
 	}
 
 	/**
@@ -174,6 +195,7 @@ class REST {
 		}
 
 		$object = $store->get( $id );
+		self::publish_picture( $map_id );
 		return rest_ensure_response( self::with_can_edit( $object, $map_id ) );
 	}
 
@@ -208,11 +230,14 @@ class REST {
 			return $payload;
 		}
 
-		$updated = $store->update( (int) $object['id'], $payload );
+		$body     = self::body( $request );
+		$expected = isset( $body['updated_at'] ) ? sanitize_text_field( (string) $body['updated_at'] ) : '';
+		$updated  = $store->update( (int) $object['id'], $payload, $expected );
 		if ( is_wp_error( $updated ) ) {
 			return $updated;
 		}
 
+		self::publish_picture( (int) $request['map_id'] );
 		return rest_ensure_response( self::with_can_edit( $store->get( (int) $object['id'] ), (int) $request['map_id'] ) );
 	}
 
@@ -236,7 +261,10 @@ class REST {
 			return new \WP_Error( 'tacnav_geo_forbidden', __( 'You cannot delete this object.', 'tacnav-maps' ), array( 'status' => 403 ) );
 		}
 
-		$store->delete( (int) $object['id'] );
+		$deleted = $store->delete( (int) $object['id'] );
+		if ( $deleted ) {
+			self::publish_picture( (int) $request['map_id'] );
+		}
 		return rest_ensure_response( array( 'deleted' => true ) );
 	}
 
@@ -294,6 +322,7 @@ class REST {
 		}
 
 		Membership::set_self_point( (int) $user->ID, $map_id, (int) $id );
+		self::publish_picture( $map_id );
 		return rest_ensure_response( self::with_can_edit( $store->get( (int) $id ), $map_id ) );
 	}
 
@@ -311,6 +340,7 @@ class REST {
 
 		$store   = new Geo_Store();
 		$deleted = $store->purge_expired( $map_id, gmdate( 'Y-m-d H:i:s' ) );
+		self::publish_picture( $map_id );
 		return rest_ensure_response( array( 'deleted' => $deleted ) );
 	}
 
@@ -366,6 +396,21 @@ class REST {
 	}
 
 	/**
+	 * Publish stored pictures after a successful write.
+	 *
+	 * @param int $map_id Map ID.
+	 * @return void
+	 */
+	private static function publish_picture( $map_id ) {
+		$map = Catalog::get_map( (int) $map_id );
+		if ( ! $map ) {
+			return;
+		}
+
+		Picture_Publisher::publish( (int) $map_id, $map );
+	}
+
+	/**
 	 * Visible objects for a resolved viewer.
 	 *
 	 * @param int                  $map_id          Map ID.
@@ -374,13 +419,42 @@ class REST {
 	 * @return array<int, array<string, mixed>>
 	 */
 	public static function visible_objects( $map_id, $include_expired, $resolved ) {
+		$viewer = Viewer::context( $resolved );
+		return self::visible_objects_for( $map_id, $include_expired && 'staff' === $resolved['kind'], $viewer, 'guest' === $resolved['kind'] ? 'public' : 'studio' );
+	}
+
+	/**
+	 * Object list for one stored audience.
+	 *
+	 * @param int    $map_id   Map ID.
+	 * @param string $audience Audience key.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function objects_for_audience( $map_id, $audience ) {
+		$viewer = Picture_Audience::viewer( $audience );
+		if ( null === $viewer ) {
+			return array();
+		}
+
+		return self::visible_objects_for( $map_id, Picture_Audience::includes_expired( $audience ), $viewer, 'studio' );
+	}
+
+	/**
+	 * Visible objects for an explicit viewer.
+	 *
+	 * @param int                  $map_id          Map ID.
+	 * @param bool                 $include_expired Include expired.
+	 * @param array<string, mixed> $viewer          Viewer context.
+	 * @param string               $surface         studio|public.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function visible_objects_for( $map_id, $include_expired, $viewer, $surface ) {
 		$store   = new Geo_Store();
-		$viewer  = Viewer::context( $resolved );
-		$request = Access::request_context( 'guest' === $resolved['kind'] ? 'public' : 'studio', $map_id );
+		$request = Access::request_context( $surface, $map_id );
 		$rows    = $store->list_for_map(
 			$map_id,
 			array(
-				'include_expired' => $include_expired && 'staff' === $resolved['kind'],
+				'include_expired' => $include_expired,
 				'viewer'          => $viewer,
 				'request'         => $request,
 			)

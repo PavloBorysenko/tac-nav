@@ -50,6 +50,9 @@
 		objects: cfg.objects || [],
 		saving: false,
 		liveTimer: null,
+		liveOn: false,
+		quietPolls: 0,
+		pictureRev: cfg.pictureRev == null ? '0' : String( cfg.pictureRev ),
 		labelsOn: cfg.map.basemap === 'satellite-labels',
 	};
 
@@ -917,6 +920,7 @@
 				owner_team_id: sheet.querySelector( '[data-f="owner_team_id"]' ) ? Number( sheet.querySelector( '[data-f="owner_team_id"]' ).value ) || null : null,
 				visible_team_ids: visible,
 				ttl_minutes: Number( sheet.querySelector( '[data-f="ttl_minutes"]' ).value ),
+				updated_at: object.updated_at || '',
 			};
 			setSaving( true );
 			var req = isNew
@@ -927,8 +931,17 @@
 				setSaving( false );
 				resetTools();
 				closeSheets();
-			} ).catch( function () {
+			} ).catch( function ( err ) {
 				setSaving( false );
+				if ( err && err.code === 'tacnav_geo_conflict' ) {
+					var note = sheet.querySelector( '[data-conflict]' );
+					if ( ! note ) {
+						note = document.createElement( 'p' );
+						note.setAttribute( 'data-conflict', '1' );
+						sheet.appendChild( note );
+					}
+					note.textContent = strings.conflict || '';
+				}
 				return null;
 			} );
 		} );
@@ -962,13 +975,13 @@
 			html += '<p class="tacnav-ttl">' + escapeHtml( formatRemaining( object ) ) + '</p>';
 		}
 		html += '<div class="tacnav-sheet-actions">';
-		if ( object.can_edit ) {
+		if ( cfg.mode !== 'guest' && object.can_edit ) {
 			html += '<button type="button" class="tacnav-btn" data-edit>' + strings.edit + '</button>';
 			html += '<button type="button" class="tacnav-btn" data-delete>' + strings.delete + '</button>';
 		}
 		html += '<button type="button" class="tacnav-btn" data-close>' + strings.cancel + '</button></div>';
 		var sheet = openSheet( 'popup', html );
-		if ( object.can_edit ) {
+		if ( cfg.mode !== 'guest' && object.can_edit ) {
 			sheet.querySelector( '[data-edit]' ).addEventListener( 'click', function () {
 				beginGeomEdit( object );
 				openInspector( object, false );
@@ -1042,34 +1055,206 @@
 		} );
 	}
 
+	function guestPath( path ) {
+		if ( cfg.mode !== 'guest' ) {
+			return path;
+		}
+		var token = '';
+		try {
+			token = new URLSearchParams( window.location.search ).get( 't' ) || '';
+		} catch ( err ) {
+			token = '';
+		}
+		return path + ( path.indexOf( '?' ) === -1 ? '?' : '&' ) + 't=' + encodeURIComponent( token );
+	}
+
+	function objectStamp( object ) {
+		return JSON.stringify( {
+			kind: object.kind,
+			geometry: object.geometry,
+			title: object.title,
+			description: object.description,
+			icon_id: object.icon_id,
+			owner_team_id: object.owner_team_id,
+			visible_team_ids: object.visible_team_ids,
+			expires_at: object.expires_at,
+			origin: object.origin,
+			can_edit: object.can_edit,
+			self_point: object.self_point,
+			avatar_url: object.avatar_url,
+		} );
+	}
+
+	function upsertObject( row ) {
+		if ( state.formObject && state.formObject.id && Number( state.formObject.id ) === Number( row.id ) ) {
+			return;
+		}
+		var layer = state.layers[ row.id ];
+		if ( ! objectVisibleOnCanvas( row ) ) {
+			if ( layer ) {
+				map.removeLayer( layer );
+				delete state.layers[ row.id ];
+			}
+			return;
+		}
+		var stamp = objectStamp( row );
+		if ( layer && layer._tacnavStamp === stamp ) {
+			return;
+		}
+		if ( layer ) {
+			map.removeLayer( layer );
+			delete state.layers[ row.id ];
+		}
+		addObjectLayer( row );
+		if ( state.layers[ row.id ] ) {
+			state.layers[ row.id ]._tacnavStamp = stamp;
+		}
+	}
+
+	function applyPicture( rows ) {
+		var next = {};
+		rows.forEach( function ( row ) {
+			next[ row.id ] = row;
+		} );
+		var formId = state.formObject && state.formObject.id;
+		Object.keys( state.layers ).forEach( function ( id ) {
+			if ( next[ id ] ) {
+				return;
+			}
+			if ( formId && Number( formId ) === Number( id ) ) {
+				return;
+			}
+			map.removeLayer( state.layers[ id ] );
+			delete state.layers[ id ];
+		} );
+		state.objects = rows.map( function ( row ) {
+			if ( formId && Number( formId ) === Number( row.id ) ) {
+				return state.formObject;
+			}
+			return row;
+		} );
+		if ( formId && ! next[ formId ] ) {
+			state.objects.push( state.formObject );
+		}
+		rows.forEach( upsertObject );
+	}
+
+	function refreshPicture() {
+		var path = state.showExpired ? '/objects?include_expired=1' : '/objects';
+		var headers = {
+			'Content-Type': 'application/json',
+			'X-WP-Nonce': cfg.nonce,
+		};
+		if ( state.pictureRev != null && state.pictureRev !== '' ) {
+			headers[ 'If-None-Match' ] = '"' + state.pictureRev + '"';
+		}
+		return window.fetch( cfg.restUrl + guestPath( path ), {
+			method: 'GET',
+			headers: headers,
+			credentials: 'same-origin',
+		} ).then( function ( res ) {
+			if ( res.status === 304 ) {
+				return { status: 304 };
+			}
+			return res.json().then( function ( body ) {
+				if ( ! res.ok ) {
+					throw body;
+				}
+				var etag = res.headers.get( 'ETag' );
+				if ( etag ) {
+					state.pictureRev = etag.replace( /^W\//, '' ).replace( /"/g, '' );
+				}
+				return { status: 200, objects: body };
+			} );
+		} );
+	}
+
+	function liveDelay() {
+		if ( document.hidden ) {
+			return 30000;
+		}
+		if ( state.quietPolls >= 2 ) {
+			return 6000;
+		}
+		return 3000;
+	}
+
+	function scheduleLive() {
+		if ( state.liveTimer ) {
+			window.clearTimeout( state.liveTimer );
+		}
+		state.liveTimer = window.setTimeout( function () {
+			state.liveTimer = null;
+			if ( ! state.liveOn ) {
+				return;
+			}
+			if ( state.saving ) {
+				scheduleLive();
+				return;
+			}
+			refreshPicture().then( function ( result ) {
+				if ( result && result.status === 200 && result.objects ) {
+					state.quietPolls = 0;
+					applyPicture( result.objects );
+				} else if ( result && result.status === 304 ) {
+					state.quietPolls += 1;
+				}
+				if ( state.liveOn ) {
+					scheduleLive();
+				}
+			} ).catch( function () {
+				if ( state.liveOn ) {
+					scheduleLive();
+				}
+			} );
+		}, liveDelay() );
+	}
+
 	function reloadObjects() {
-		var q = state.showExpired ? '/objects?include_expired=1' : '/objects';
-		rest( q, { method: 'GET' } ).then( function ( rows ) {
-			state.objects = rows;
-			redrawObjects();
+		state.pictureRev = null;
+		refreshPicture().then( function ( result ) {
+			if ( result && result.status === 200 && result.objects ) {
+				state.quietPolls = 0;
+				applyPicture( result.objects );
+			}
 		} ).catch( function () {
 			return null;
 		} );
 	}
 
 	function setLive( on ) {
+		state.liveOn = !! on;
 		if ( state.liveTimer ) {
-			window.clearInterval( state.liveTimer );
+			window.clearTimeout( state.liveTimer );
 			state.liveTimer = null;
 		}
 		var btn = app.querySelector( '[data-tacnav-live]' );
 		if ( btn ) {
-			btn.classList.toggle( 'is-active', on );
+			btn.classList.toggle( 'is-active', state.liveOn );
 		}
-		if ( on ) {
-			reloadObjects();
-			state.liveTimer = window.setInterval( function () {
-				if ( state.saving ) {
-					return;
-				}
-				reloadObjects();
-			}, 5000 );
+		if ( state.liveOn ) {
+			state.quietPolls = 0;
+			scheduleLive();
 		}
+	}
+
+	function dropExpiredMarkers() {
+		if ( cfg.mode === 'staff' && state.showExpired ) {
+			return;
+		}
+		state.objects = state.objects.filter( function ( object ) {
+			if ( ! isExpired( object ) ) {
+				return true;
+			}
+			if ( state.formObject && Number( state.formObject.id ) === Number( object.id ) ) {
+				return true;
+			}
+			if ( state.layers[ object.id ] ) {
+				map.removeLayer( state.layers[ object.id ] );
+				delete state.layers[ object.id ];
+			}
+			return false;
+		} );
 	}
 
 	function handleMapClick( event ) {
@@ -1202,7 +1387,7 @@
 	} );
 	if ( liveBtn ) {
 		liveBtn.addEventListener( 'click', function () {
-			setLive( ! state.liveTimer );
+			setLive( ! state.liveOn );
 		} );
 	}
 	if ( titlesBtn ) {
@@ -1258,4 +1443,13 @@
 	}
 
 	redrawObjects();
+	state.objects.forEach( function ( object ) {
+		if ( state.layers[ object.id ] ) {
+			state.layers[ object.id ]._tacnavStamp = objectStamp( object );
+		}
+	} );
+	window.setInterval( dropExpiredMarkers, 1000 );
+	if ( cfg.mode === 'player' || cfg.mode === 'guest' ) {
+		setLive( true );
+	}
 }() );
