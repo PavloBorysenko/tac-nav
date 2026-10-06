@@ -1,0 +1,113 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SERVER_USERNAME: ${{ secrets.SSH_USER }}
+      SERVER_HOST: ${{ secrets.SSH_HOST }}
+      SERVER_PATH: ${{ secrets.SERVER_PATH }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.0"
+
+      - name: Deploy wp-content
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SERVER_USERNAME"
+          test -n "$SERVER_HOST"
+          test -n "$SERVER_PATH"
+          test -n "$SSH_PRIVATE_KEY"
+          corepack enable
+
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          SSH_DIR="$(mktemp -d)"
+          SSH_KNOWN_HOSTS_FILE="$SSH_DIR/known_hosts"
+          trap 'ssh-agent -k >/dev/null 2>&1 || true; rm -rf "$SSH_DIR" .deploy' EXIT
+          ssh-keyscan -H "$SERVER_HOST" > "$SSH_KNOWN_HOSTS_FILE"
+          chmod 600 "$SSH_KNOWN_HOSTS_FILE"
+
+          rm -rf .deploy
+          mkdir -p .deploy
+          git archive --format=tar "$GITHUB_SHA" wp-content | tar -xf - -C .deploy
+
+          while IFS= read -r -d '' file; do
+            dir="$(dirname "$file")"
+            echo "Installing Composer dependencies in $dir"
+            if [ ! -f "$dir/composer.lock" ]; then
+              echo "Missing composer.lock in $dir" >&2
+              exit 1
+            fi
+            (
+              cd "$dir"
+              composer install \
+                --no-dev \
+                --no-interaction \
+                --no-progress \
+                --prefer-dist \
+                --optimize-autoloader
+            )
+          done < <(find .deploy/wp-content -type f -name composer.json -print0)
+
+          while IFS= read -r -d '' file; do
+            dir="$(dirname "$file")"
+            echo "Installing frontend dependencies in $dir"
+            (
+              cd "$dir"
+              if [ -f pnpm-lock.yaml ]; then
+                pnpm install --frozen-lockfile
+                run_build="pnpm run build"
+              elif [ -f package-lock.json ]; then
+                npm ci
+                run_build="npm run build"
+              elif [ -f yarn.lock ]; then
+                yarn install --frozen-lockfile
+                run_build="yarn build"
+              else
+                echo "Missing JavaScript lock file in $dir" >&2
+                exit 1
+              fi
+              if node -e "const p = require('./package.json'); process.exit(p.scripts?.build ? 0 : 1)"; then
+                $run_build
+              fi
+            )
+          done < <(find .deploy/wp-content -type f -name package.json -not -path '*/node_modules/*' -print0)
+
+          find .deploy/wp-content -type d -name node_modules -prune -exec rm -rf '{}' +
+
+          for type in themes plugins; do
+            [ -d ".deploy/wp-content/$type" ] || continue
+            for component in ".deploy/wp-content/$type"/*; do
+              [ -d "$component" ] || continue
+              name="$(basename "$component")"
+              destination="$SERVER_USERNAME@$SERVER_HOST:$SERVER_PATH/wp-content/$type/$name/"
+              echo "Deploying $type/$name"
+              rsync -az \
+                -e "ssh -o UserKnownHostsFile=$SSH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes" \
+                --delete \
+                --no-times \
+                --no-perms \
+                --no-owner \
+                --no-group \
+                "$component/" \
+                "$destination"
+            done
+          done
