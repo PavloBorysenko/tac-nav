@@ -311,7 +311,7 @@ class REST {
 			'ttl_minutes'        => 1,
 			'created_by_user_id' => (int) $user->ID,
 		);
-		$payload = self::apply_ttl( $payload );
+		$payload = self::apply_ttl( $payload, true );
 		$id      = $store->insert( $payload );
 		if ( is_wp_error( $id ) ) {
 			return $id;
@@ -554,7 +554,7 @@ class REST {
 				unset( $payload['origin'] );
 				unset( $payload['created_by_user_id'] );
 			}
-			return self::apply_ttl( $payload );
+			return self::apply_ttl( $payload, $create );
 		}
 
 		return self::payload_from_request( $request, (int) $map['id'], $create );
@@ -564,20 +564,11 @@ class REST {
 	 * Turn ttl_minutes into expires_at.
 	 *
 	 * @param array<string, mixed> $payload Payload.
+	 * @param bool                 $create  Creating.
 	 * @return array<string, mixed>
 	 */
-	private static function apply_ttl( $payload ) {
-		if ( ! array_key_exists( 'ttl_minutes', $payload ) ) {
-			return $payload;
-		}
-		$minutes = (int) $payload['ttl_minutes'];
-		unset( $payload['ttl_minutes'] );
-		if ( $minutes > 0 ) {
-			$payload['expires_at'] = gmdate( 'Y-m-d H:i:s', time() + ( $minutes * 60 ) );
-		} else {
-			$payload['expires_at'] = null;
-		}
-		return $payload;
+	private static function apply_ttl( $payload, $create ) {
+		return Object_Expiry::apply_to_payload( $payload, $create, time() );
 	}
 
 	/**
@@ -616,13 +607,10 @@ class REST {
 			'created_by_user_id' => get_current_user_id(),
 		);
 
-		if ( isset( $body['ttl_minutes'] ) && (int) $body['ttl_minutes'] > 0 ) {
-			$payload['expires_at'] = gmdate( 'Y-m-d H:i:s', time() + ( (int) $body['ttl_minutes'] * 60 ) );
-		} elseif ( array_key_exists( 'ttl_minutes', $body ) && 0 === (int) $body['ttl_minutes'] ) {
-			$payload['expires_at'] = null;
-		} elseif ( ! empty( $body['expires_at'] ) ) {
-			$payload['expires_at'] = $body['expires_at'];
+		if ( array_key_exists( 'ttl_minutes', $body ) ) {
+			$payload['ttl_minutes'] = $body['ttl_minutes'];
 		}
+		$payload = self::apply_ttl( $payload, $create );
 
 		if ( ! $create && isset( $body['origin'] ) ) {
 			unset( $payload['origin'] );

@@ -199,6 +199,8 @@ class Canvas {
 					'filters'       => __( 'Filters', 'tacnav-maps' ),
 					'none'          => __( 'None', 'tacnav-maps' ),
 					'forever'       => __( 'Does not expire', 'tacnav-maps' ),
+					'keep'          => __( 'Don\'t change', 'tacnav-maps' ),
+					'objectId'      => __( 'ID', 'tacnav-maps' ),
 					'saving'        => __( 'Saving...', 'tacnav-maps' ),
 					'remaining'     => __( 'Visible for', 'tacnav-maps' ),
 					'home'          => __( 'Center', 'tacnav-maps' ),

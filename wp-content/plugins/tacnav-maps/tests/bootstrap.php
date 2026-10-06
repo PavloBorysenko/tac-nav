@@ -28,6 +28,7 @@ if ( is_readable( $tacnav_maps_autoload ) ) {
 	require_once $tacnav_maps_autoload;
 } else {
 	require_once dirname( __DIR__ ) . '/app/Guest_Token.php';
+	require_once dirname( __DIR__ ) . '/app/Object_Expiry.php';
 	require_once dirname( __DIR__ ) . '/app/Player_Write.php';
 	require_once dirname( __DIR__ ) . '/app/Membership.php';
 	require_once dirname( __DIR__ ) . '/app/Access.php';

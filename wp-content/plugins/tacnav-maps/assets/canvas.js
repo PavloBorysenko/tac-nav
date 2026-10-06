@@ -860,13 +860,20 @@
 			} );
 		}
 		html += '<label>' + escapeHtml( strings.ttl ) + '</label><select data-f="ttl_minutes">';
+		if ( ! isNew ) {
+			html += '<option value="" selected>' + escapeHtml( strings.keep ) + '</option>';
+		}
 		[
 			[ 0, strings.forever ],
+			[ 1, '1' ],
 			[ 3, '3' ],
 			[ 10, '10' ],
+			[ 20, '20' ],
+			[ 30, '30' ],
 			[ 60, '60' ],
 		].forEach( function ( pair ) {
-			html += '<option value="' + pair[ 0 ] + '"' + ( Number( object.ttl_minutes ) === pair[ 0 ] ? ' selected' : '' ) + '>' + pair[ 1 ] + '</option>';
+			var selected = isNew && Number( object.ttl_minutes ) === pair[ 0 ] ? ' selected' : '';
+			html += '<option value="' + pair[ 0 ] + '"' + selected + '>' + escapeHtml( pair[ 1 ] ) + '</option>';
 		} );
 		html += '</select>';
 		if ( ! isNew ) {
@@ -919,9 +926,12 @@
 				icon_id: Number( sheet.querySelector( '[data-f="icon_id"]' ).value ) || null,
 				owner_team_id: sheet.querySelector( '[data-f="owner_team_id"]' ) ? Number( sheet.querySelector( '[data-f="owner_team_id"]' ).value ) || null : null,
 				visible_team_ids: visible,
-				ttl_minutes: Number( sheet.querySelector( '[data-f="ttl_minutes"]' ).value ),
 				updated_at: object.updated_at || '',
 			};
+			var ttlValue = sheet.querySelector( '[data-f="ttl_minutes"]' ).value;
+			if ( ttlValue !== '' ) {
+				payload.ttl_minutes = Number( ttlValue );
+			}
 			setSaving( true );
 			var req = isNew
 				? rest( '/objects', { method: 'POST', body: JSON.stringify( payload ) } )
@@ -971,6 +981,9 @@
 			html += '<p>' + escapeHtml( object.description ) + '</p>';
 		}
 		html += '<p>' + escapeHtml( strings.belonging ) + ': ' + escapeHtml( team ? team.title : strings.neutral ) + '</p>';
+		if ( cfg.mode === 'staff' ) {
+			html += '<p>' + escapeHtml( strings.objectId ) + ': ' + escapeHtml( object.id ) + '</p>';
+		}
 		if ( object.expires_at ) {
 			html += '<p class="tacnav-ttl">' + escapeHtml( formatRemaining( object ) ) + '</p>';
 		}
