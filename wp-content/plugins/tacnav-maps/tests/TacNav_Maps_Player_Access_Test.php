@@ -75,7 +75,7 @@ class TacNav_Maps_Player_Access_Test extends TestCase {
 				'geometry'    => array( 'lat' => 1, 'lng' => 2 ),
 				'icon_id'     => 3,
 				'title'       => 'Flag',
-				'ttl_minutes' => 0,
+				'ttl_seconds' => 0,
 				'origin'      => 'staff',
 			),
 			7,
@@ -86,10 +86,13 @@ class TacNav_Maps_Player_Access_Test extends TestCase {
 		$this->assertSame( 7, $ok['owner_team_id'] );
 		$this->assertSame( array( 7 ), $ok['visible_team_ids'] );
 		$this->assertSame( 'team', $ok['origin'] );
-		$this->assertSame( 0, $ok['ttl_minutes'] );
+		$this->assertSame( 0, $ok['ttl_seconds'] );
 
 		$bad = Player_Write::normalize( array( 'icon_id' => 9 ), 7, array( 3 ) );
 		$this->assertSame( 'icon', $bad['error'] );
+
+		$old_ttl = Player_Write::normalize( array( 'ttl_minutes' => 1 ), 7, array( 3 ) );
+		$this->assertSame( 'ttl_minutes', $old_ttl['error'] );
 	}
 
 	/**

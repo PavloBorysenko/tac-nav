@@ -10,7 +10,7 @@ This plugin registers map, team, and icon post types, the `tacnav_geo_objects` t
 
 Deactivating the plugin removes menus, routes, and rewrite rules after flush. Catalog posts remain in `wp_posts`. The geo table is not dropped on deactivation. Switching the active theme does not disable this plugin.
 
-`TacNav\Maps\Plugin::boot()` registers hooks. Classes live under `app/` with Composer PSR-4 namespace `TacNav\Maps\`. Activation (`TacNav\Maps\Activator`) creates the table, installs capabilities, and flushes rewrites.
+`TacNav\Maps\Plugin::boot()` registers hooks. Classes live under `app/` with Composer PSR-4 namespace `TacNav\Maps\`. Activation (`TacNav\Maps\Activator`) creates the table, capability-probes and installs the required spatial projection/index, migrates old minute presets to seconds, installs capabilities, and flushes rewrites. Unsupported spatial databases fail activation/upgrade with a clear requirement message; search never falls back to scanning canonical JSON.
 
 ## Constraints and side effects
 

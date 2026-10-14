@@ -36,14 +36,14 @@ defined( 'ABSPATH' ) || exit;
 	<?php endforeach; ?>
 </div>
 <h3><?php esc_html_e( 'Quick-add presets', 'tacnav-maps' ); ?></h3>
-<p><?php esc_html_e( 'All fields except coordinates. Default time to live is 3 minutes. Used by team members in a later slice.', 'tacnav-maps' ); ?></p>
+<p><?php esc_html_e( 'All fields except coordinates. Default time to live is 180 seconds. Used by team members in a later slice.', 'tacnav-maps' ); ?></p>
 <table class="widefat">
 	<thead>
 		<tr>
 			<th><?php esc_html_e( 'Kind', 'tacnav-maps' ); ?></th>
 			<th><?php esc_html_e( 'Icon', 'tacnav-maps' ); ?></th>
 			<th><?php esc_html_e( 'Title', 'tacnav-maps' ); ?></th>
-			<th><?php esc_html_e( 'TTL minutes', 'tacnav-maps' ); ?></th>
+			<th><?php esc_html_e( 'TTL seconds', 'tacnav-maps' ); ?></th>
 			<th><?php esc_html_e( 'Description', 'tacnav-maps' ); ?></th>
 		</tr>
 	</thead>
@@ -51,7 +51,7 @@ defined( 'ABSPATH' ) || exit;
 	<?php
 	for ( $tacnav_i = 0; $tacnav_i < 6; $tacnav_i++ ) {
 		$tacnav_row = isset( $presets[ $tacnav_i ] ) && is_array( $presets[ $tacnav_i ] ) ? $presets[ $tacnav_i ] : array();
-		$tacnav_ttl = array_key_exists( 'ttl_minutes', $tacnav_row ) ? (string) $tacnav_row['ttl_minutes'] : '3';
+		$tacnav_ttl = array_key_exists( 'ttl_seconds', $tacnav_row ) ? (string) $tacnav_row['ttl_seconds'] : '180';
 		?>
 		<tr>
 			<td>
@@ -71,7 +71,7 @@ defined( 'ABSPATH' ) || exit;
 				</select>
 			</td>
 			<td><input type="text" name="tacnav_presets[<?php echo esc_attr( (string) $tacnav_i ); ?>][title]" value="<?php echo esc_attr( isset( $tacnav_row['title'] ) ? (string) $tacnav_row['title'] : '' ); ?>" /></td>
-			<td><input type="number" min="0" name="tacnav_presets[<?php echo esc_attr( (string) $tacnav_i ); ?>][ttl_minutes]" value="<?php echo esc_attr( $tacnav_ttl ); ?>" /></td>
+			<td><input type="number" min="0" name="tacnav_presets[<?php echo esc_attr( (string) $tacnav_i ); ?>][ttl_seconds]" value="<?php echo esc_attr( $tacnav_ttl ); ?>" /></td>
 			<td><input type="text" name="tacnav_presets[<?php echo esc_attr( (string) $tacnav_i ); ?>][description]" value="<?php echo esc_attr( isset( $tacnav_row['description'] ) ? (string) $tacnav_row['description'] : '' ); ?>" /></td>
 		</tr>
 		<?php

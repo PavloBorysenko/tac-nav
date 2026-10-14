@@ -714,7 +714,7 @@
 				title: state.preset.title || '',
 				description: state.preset.description || '',
 				icon_id: Number( state.preset.icon_id ) || null,
-				ttl_minutes: Number( state.preset.ttl_minutes ) || 0,
+				ttl_seconds: Number( state.preset.ttl_seconds ) || 0,
 			} );
 			return;
 		}
@@ -728,7 +728,7 @@
 			icon_id: null,
 			title: '',
 			description: '',
-			ttl_minutes: 0,
+			ttl_seconds: 0,
 		};
 		state.formObject = object;
 		refreshDraftIcon( object );
@@ -859,20 +859,20 @@
 				html += '<label><input type="checkbox" data-vis="' + escapeHtml( team.id ) + '"' + ( checked ? ' checked' : '' ) + ' /> ' + escapeHtml( team.title ) + '</label>';
 			} );
 		}
-		html += '<label>' + escapeHtml( strings.ttl ) + '</label><select data-f="ttl_minutes">';
+		html += '<label>' + escapeHtml( strings.ttl ) + '</label><select data-f="ttl_seconds">';
 		if ( ! isNew ) {
 			html += '<option value="" selected>' + escapeHtml( strings.keep ) + '</option>';
 		}
 		[
 			[ 0, strings.forever ],
-			[ 1, '1' ],
-			[ 3, '3' ],
-			[ 10, '10' ],
-			[ 20, '20' ],
-			[ 30, '30' ],
-			[ 60, '60' ],
+			[ 60, '1' ],
+			[ 180, '3' ],
+			[ 600, '10' ],
+			[ 1200, '20' ],
+			[ 1800, '30' ],
+			[ 3600, '60' ],
 		].forEach( function ( pair ) {
-			var selected = isNew && Number( object.ttl_minutes ) === pair[ 0 ] ? ' selected' : '';
+			var selected = isNew && Number( object.ttl_seconds ) === pair[ 0 ] ? ' selected' : '';
 			html += '<option value="' + pair[ 0 ] + '"' + selected + '>' + escapeHtml( pair[ 1 ] ) + '</option>';
 		} );
 		html += '</select>';
@@ -928,9 +928,9 @@
 				visible_team_ids: visible,
 				updated_at: object.updated_at || '',
 			};
-			var ttlValue = sheet.querySelector( '[data-f="ttl_minutes"]' ).value;
+			var ttlValue = sheet.querySelector( '[data-f="ttl_seconds"]' ).value;
 			if ( ttlValue !== '' ) {
-				payload.ttl_minutes = Number( ttlValue );
+				payload.ttl_seconds = Number( ttlValue );
 			}
 			setSaving( true );
 			var req = isNew

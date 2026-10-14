@@ -18,6 +18,17 @@ OpenSpec CLI is installed globally. This repo has `openspec/` initialized with `
 
 The WordPress skills set, `wordpress-project-documentation`, `wp-browser-sensor`, `local-code-review`, `wordpress-testing`, `wordpress-component-creation`, and `wordpress-project-creation` are vendored under `.agents/skills`.
 
+The native Android project is `apps/tacnav-mortar-android/`. It uses the
+Gradle 9.6.0 wrapper, Android Gradle Plugin 9.4.0, Kotlin 2.4.10, JDK 17 or
+newer, Android SDK Platform 37.0, and the dependency versions pinned in
+`gradle/libs.versions.toml`. Dependency locking is enabled
+for every configuration; regenerate tracked lock state with
+`.\gradlew.bat :app:dependencies --write-locks` only after the approved SDK and JDK
+are installed. Android local SDK paths, build output, packages, and signing
+stores remain ignored. The tracked `app/google-services.json` is the Firebase
+Android client configuration for `com.tacnav.mortar`, not a service-account
+credential.
+
 ## Constraints and side effects
 
 Do not Composer-require PHPCS, PHPStan, PHPUnit, Jest, or OpenSpec inside a theme or plugin. Repo-level tools belong at the WordPress git root (`phpcs.xml.dist`, `phpstan.neon.dist`, `phpunit.xml.dist`, `tools/phpstan/`, `tools/phpunit/`, `tools/js-lint/`, `tools/js-test/`, `openspec/`). Theme-local `@wordpress/scripts` in `wp-content/themes/tacnav/package.json` is the exception for that theme's JS toolchain. `node_modules/` stays gitignored.
@@ -38,3 +49,5 @@ Do not point any future `WP_UnitTestCase` suite at this Local development databa
 - `.cursor/rules/wp-agent-harness-qa.mdc` — QA-loop mode `task` and gate commands
 - `.agents/skills/wp-agent-harness/` — vendored harness controller
 - `openspec/config.yaml` — OpenSpec project config (`schema: spec-driven`)
+- `apps/tacnav-mortar-android/` — native app source, wrapper, version catalog,
+  dependency-locking instructions, JVM tests, and instrumented Compose tests

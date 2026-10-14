@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "250460910588",
+    "project_id": "tac-nav",
+    "storage_bucket": "tac-nav.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:250460910588:android:36b76d57324d16e8b83879",
+        "android_client_info": {
+          "package_name": "com.tacnav.mortar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfGENBR0_eeMDr68Xxl7ATHbZQJHfrRvA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

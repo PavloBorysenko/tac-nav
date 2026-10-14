@@ -7,6 +7,7 @@
   <testsuites>
     <testsuite name="first-party">
       <directory>wp-content/plugins/tacnav-maps/tests</directory>
+      <directory>wp-content/plugins/tacnav-devices/tests</directory>
     </testsuite>
   </testsuites>
 </phpunit>

@@ -10,13 +10,15 @@ Post types `tacnav_map`, `tacnav_team`, and `tacnav_icon` are private UI types. 
 
 Map meta: `tacnav_center_lat`, `tacnav_center_lng`, `tacnav_zoom`, `tacnav_basemap` (`satellite` or `satellite-labels`), `tacnav_team_ids` (teams listed on that map). Title and description use the post title and content. Canvas pan does not write these keys. Staff set center and zoom on a Leaflet picker, not by typing coordinates.
 
-Team meta: `tacnav_color`, `tacnav_palette_icon_ids`, `tacnav_quick_presets` (kind, icon_id, title, description, ttl_minutes defaulting to 3; no coordinates). The team badge is the featured image, not a catalog icon id.
+Team meta: `tacnav_color`, `tacnav_palette_icon_ids`, `tacnav_quick_presets` (kind, icon_id, title, description, `ttl_seconds` defaulting to 180; no coordinates). Database version 4 migrates each old `ttl_minutes` preset once by multiplying it by 60 and removes the old key. The team badge is the featured image, not a catalog icon id.
 
 Icon meta: `tacnav_availability` (`staff`, `player`, `both`). The file is the featured image. Player canvas icons are the team's palette, not this availability flag.
 
 Player user meta: `tacnav_team_id` (one team, or empty), `tacnav_avatar_id` (attachment), `tacnav_self_points` (map id to the current self-point object id).
 
-Geo row fields: `kind` (`marker`, `polyline`, `polygon`, `circle`), `geometry` JSON, `owner_team_id` (empty = neutral), `visible_team_ids` JSON (empty = all), `origin` (`staff` or `team`), `icon_id`, `title`, `description`, `expires_at`. Missing or deleted icons fall back to the default marker.
+Geo row fields: `kind` (`marker`, `polyline`, `polygon`, `circle`), canonical `geometry` JSON, `owner_team_id` (empty = neutral), `visible_team_ids` JSON (empty = all), `origin` (`staff`, `team`, or `application`), nullable `application_id`, nullable `position_accuracy_m`, `icon_id`, `title`, `description`, and absolute UTC `expires_at`. Missing or deleted icons fall back to the default marker.
+
+`spatial_projection` is a non-null MySQL/MariaDB `GEOMETRY` generated from canonical JSON and protected by a spatial index. Markers project to points, polylines to line strings, polygons to polygons, and circles to a 32-point envelope used only for candidate selection. Versioned migration SQL capability-probes InnoDB geometry/index support, backfills every valid existing row without changing canonical JSON, verifies no null projection remains, and then adds the spatial index. Activation or upgrade fails clearly if that indexed plan is unavailable; there is no JSON-scan fallback. Creates and updates write canonical JSON and projection in one SQL statement.
 
 Delete map removes its geo rows. Delete team removes rows whose belonging is that team or whose visibility list includes it, and clears `tacnav_team_id` for players of that team. Removing a team from a map keeps the rows. Delete icon nulls `icon_id` and does not delete rows.
 

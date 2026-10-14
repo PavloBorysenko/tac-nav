@@ -48,10 +48,25 @@
 
 !/wp-content/plugins/tacnav-maps/
 /wp-content/plugins/tacnav-maps/build/
+!/wp-content/plugins/tacnav-devices/
+/wp-content/plugins/tacnav-devices/build/
 
 # CI-generated plugin assets
 /wp-content/plugins/*/build/
 /wp-content/plugins/*/dist/
+
+# ===================================
+# Android Applications
+# ===================================
+
+/apps/**/.gradle/
+/apps/**/build/
+/apps/**/local.properties
+/apps/**/*.apk
+/apps/**/*.aab
+/apps/**/*.jks
+/apps/**/*.keystore
+/apps/**/*service-account*.json
 
 # ===================================
 # Optional MU Plugins

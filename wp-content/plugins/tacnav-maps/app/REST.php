@@ -71,6 +71,17 @@ class REST {
 
 		register_rest_route(
 			self::NS,
+			'/maps/(?P<map_id>\d+)/search',
+			array(
+				'methods'             => \WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'search_objects' ),
+				'permission_callback' => array( __CLASS__, 'can_search' ),
+				'args'                => self::map_args(),
+			)
+		);
+
+		register_rest_route(
+			self::NS,
 			'/maps/(?P<map_id>\d+)/objects/purge-expired',
 			array(
 				'methods'             => \WP_REST_Server::CREATABLE,
@@ -182,8 +193,16 @@ class REST {
 			return new \WP_Error( 'tacnav_map_missing', __( 'Map not found.', 'tacnav-maps' ), array( 'status' => 404 ) );
 		}
 
-		$resolved = Viewer::resolve( $map, self::token_from_request( $request ) );
-		$payload  = self::payload_for_viewer( $request, $map, $resolved, true );
+		$application = Application_Principal::resolve( $request, $map );
+		if ( is_wp_error( $application ) ) {
+			return $application;
+		}
+		if ( is_array( $application ) ) {
+			$payload = self::payload_for_application( $request, $map, $application, true );
+		} else {
+			$resolved = Viewer::resolve( $map, self::token_from_request( $request ) );
+			$payload  = self::payload_for_viewer( $request, $map, $resolved, true );
+		}
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
 		}
@@ -195,6 +214,18 @@ class REST {
 		}
 
 		$object = $store->get( $id );
+		if ( is_array( $application ) ) {
+			/**
+			 * Fires after an application-owned object has been committed.
+			 *
+			 * Credential-owning integrations may bind the object to the active
+			 * installation for durable addressed messaging.
+			 *
+			 * @param int                  $id          Geo object ID.
+			 * @param array<string, mixed> $application Authenticated application context.
+			 */
+			do_action( 'tacnav_application_object_saved', $id, $application );
+		}
 		self::publish_picture( $map_id );
 		return rest_ensure_response( self::with_can_edit( $object, $map_id ) );
 	}
@@ -218,14 +249,25 @@ class REST {
 		}
 
 		$object['self_point'] = Membership::is_self_point( $object );
-		$resolved             = Viewer::resolve( $map, self::token_from_request( $request ) );
-		$viewer               = Viewer::context( $resolved );
-		$request_ctx          = Access::request_context( 'studio', (int) $request['map_id'] );
+		$application          = Application_Principal::resolve( $request, $map );
+		if ( is_wp_error( $application ) ) {
+			return $application;
+		}
+		$resolved = null;
+		if ( is_array( $application ) ) {
+			$viewer = Application_Principal::viewer( $application );
+		} else {
+			$resolved = Viewer::resolve( $map, self::token_from_request( $request ) );
+			$viewer   = Viewer::context( $resolved );
+		}
+		$request_ctx = Access::request_context( 'studio', (int) $request['map_id'] );
 		if ( ! Access::is_editable( $object, $viewer, $request_ctx ) ) {
 			return new \WP_Error( 'tacnav_geo_forbidden', __( 'You cannot edit this object.', 'tacnav-maps' ), array( 'status' => 403 ) );
 		}
 
-		$payload = self::payload_for_viewer( $request, $map, $resolved, false );
+		$payload = is_array( $application )
+			? self::payload_for_application( $request, $map, $application, false )
+			: self::payload_for_viewer( $request, $map, $resolved, false );
 		if ( is_wp_error( $payload ) ) {
 			return $payload;
 		}
@@ -237,6 +279,9 @@ class REST {
 			return $updated;
 		}
 
+		if ( is_array( $application ) ) {
+			do_action( 'tacnav_application_object_saved', (int) $object['id'], $application );
+		}
 		self::publish_picture( (int) $request['map_id'] );
 		return rest_ensure_response( self::with_can_edit( $store->get( (int) $object['id'] ), (int) $request['map_id'] ) );
 	}
@@ -254,8 +299,17 @@ class REST {
 			return new \WP_Error( 'tacnav_geo_missing', __( 'Geo object not found.', 'tacnav-maps' ), array( 'status' => 404 ) );
 		}
 
+		$map = Catalog::get_map( (int) $request['map_id'] );
+		if ( ! $map ) {
+			return new \WP_Error( 'tacnav_map_missing', __( 'Map not found.', 'tacnav-maps' ), array( 'status' => 404 ) );
+		}
+		$application = Application_Principal::resolve( $request, $map );
+		if ( is_wp_error( $application ) ) {
+			return $application;
+		}
+
 		$object['self_point'] = Membership::is_self_point( $object );
-		$viewer               = Access::viewer_from_user( get_current_user_id() );
+		$viewer               = is_array( $application ) ? Application_Principal::viewer( $application ) : Access::viewer_from_user( get_current_user_id() );
 		$request_ctx          = Access::request_context( 'studio', (int) $request['map_id'] );
 		if ( ! Access::is_editable( $object, $viewer, $request_ctx ) ) {
 			return new \WP_Error( 'tacnav_geo_forbidden', __( 'You cannot delete this object.', 'tacnav-maps' ), array( 'status' => 403 ) );
@@ -266,6 +320,32 @@ class REST {
 			self::publish_picture( (int) $request['map_id'] );
 		}
 		return rest_ensure_response( array( 'deleted' => true ) );
+	}
+
+	/**
+	 * Search unexpired map geometry for an application.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public static function search_objects( $request ) {
+		$map = Catalog::get_map( (int) $request['map_id'] );
+		if ( ! $map ) {
+			return new \WP_Error( 'tacnav_map_missing', __( 'Map not found.', 'tacnav-maps' ), array( 'status' => 404 ) );
+		}
+		$application = Application_Principal::resolve( $request, $map );
+		if ( ! is_array( $application ) ) {
+			return is_wp_error( $application ) ? $application : new \WP_Error( 'tacnav_application_required', __( 'Application authentication is required.', 'tacnav-maps' ), array( 'status' => 401 ) );
+		}
+
+		$body     = self::body( $request );
+		$kind     = isset( $body['kind'] ) ? sanitize_key( (string) $body['kind'] ) : '';
+		$geometry = Geometry_Service::normalize( $kind, $body['geometry'] ?? array() );
+		if ( is_wp_error( $geometry ) ) {
+			return $geometry;
+		}
+		$results = ( new Geo_Store() )->search( (int) $map['id'], $kind, $geometry, time() );
+		return is_wp_error( $results ) ? $results : rest_ensure_response( $results );
 	}
 
 	/**
@@ -308,7 +388,7 @@ class REST {
 			'icon_id'            => null,
 			'title'              => $user->display_name,
 			'description'        => '',
-			'ttl_minutes'        => 1,
+			'ttl_seconds'        => 60,
 			'created_by_user_id' => (int) $user->ID,
 		);
 		$payload = self::apply_ttl( $payload, true );
@@ -354,7 +434,30 @@ class REST {
 		if ( current_user_can( Roles::CAP_GEO ) ) {
 			return true;
 		}
-		return Membership::player_can_open( (int) $request['map_id'] );
+		if ( Membership::player_can_open( (int) $request['map_id'] ) ) {
+			return true;
+		}
+		$map = Catalog::get_map( (int) $request['map_id'] );
+		if ( ! $map ) {
+			return false;
+		}
+		$application = Application_Principal::resolve( $request, $map );
+		return is_wp_error( $application ) ? $application : is_array( $application );
+	}
+
+	/**
+	 * Permission: a scoped application only.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return bool|\WP_Error
+	 */
+	public static function can_search( $request ) {
+		$map = Catalog::get_map( (int) $request['map_id'] );
+		if ( ! $map ) {
+			return false;
+		}
+		$application = Application_Principal::resolve( $request, $map );
+		return is_wp_error( $application ) ? $application : is_array( $application );
 	}
 
 	/**
@@ -532,6 +635,9 @@ class REST {
 			$team    = Catalog::get_team( (int) $resolved['team_id'] );
 			$palette = $team ? $team['palette_icon_ids'] : array();
 			$normal  = Player_Write::normalize( self::body( $request ), (int) $resolved['team_id'], $palette );
+			if ( 'ttl_minutes' === $normal['error'] ) {
+				return new \WP_Error( 'tacnav_ttl_minutes_removed', __( 'ttl_minutes is no longer accepted; use ttl_seconds.', 'tacnav-maps' ), array( 'status' => 400 ) );
+			}
 			if ( '' !== $normal['error'] ) {
 				return new \WP_Error( 'tacnav_geo_icon', __( 'That icon is not on your team palette.', 'tacnav-maps' ), array( 'status' => 400 ) );
 			}
@@ -547,8 +653,8 @@ class REST {
 				'description'        => $normal['description'],
 				'created_by_user_id' => get_current_user_id(),
 			);
-			if ( null !== $normal['ttl_minutes'] ) {
-				$payload['ttl_minutes'] = $normal['ttl_minutes'];
+			if ( null !== $normal['ttl_seconds'] ) {
+				$payload['ttl_seconds'] = $normal['ttl_seconds'];
 			}
 			if ( ! $create ) {
 				unset( $payload['origin'] );
@@ -561,11 +667,11 @@ class REST {
 	}
 
 	/**
-	 * Turn ttl_minutes into expires_at.
+	 * Turn ttl_seconds into expires_at.
 	 *
 	 * @param array<string, mixed> $payload Payload.
 	 * @param bool                 $create  Creating.
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function apply_ttl( $payload, $create ) {
 		return Object_Expiry::apply_to_payload( $payload, $create, time() );
@@ -586,12 +692,16 @@ class REST {
 	 * @param \WP_REST_Request $request Request.
 	 * @param int             $map_id  Map ID.
 	 * @param bool            $create  Creating.
-	 * @return array<string, mixed>
+	 * @return array<string, mixed>|\WP_Error
 	 */
 	private static function payload_from_request( $request, $map_id, $create ) {
 		$body = $request->get_json_params();
 		if ( array() === $body ) {
 			$body = $request->get_params();
+		}
+
+		if ( array_key_exists( 'ttl_minutes', $body ) ) {
+			return new \WP_Error( 'tacnav_ttl_minutes_removed', __( 'ttl_minutes is no longer accepted; use ttl_seconds.', 'tacnav-maps' ), array( 'status' => 400 ) );
 		}
 
 		$payload = array(
@@ -607,8 +717,8 @@ class REST {
 			'created_by_user_id' => get_current_user_id(),
 		);
 
-		if ( array_key_exists( 'ttl_minutes', $body ) ) {
-			$payload['ttl_minutes'] = $body['ttl_minutes'];
+		if ( array_key_exists( 'ttl_seconds', $body ) ) {
+			$payload['ttl_seconds'] = $body['ttl_seconds'];
 		}
 		$payload = self::apply_ttl( $payload, $create );
 
@@ -618,6 +728,19 @@ class REST {
 		}
 
 		return $payload;
+	}
+
+	/**
+	 * Build an application-stamped object payload.
+	 *
+	 * @param \WP_REST_Request     $request     Request.
+	 * @param array<string, mixed> $map         Map passport.
+	 * @param array<string, mixed> $application Application principal.
+	 * @param bool                 $create      Creating.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	private static function payload_for_application( $request, $map, $application, $create ) {
+		return Application_Write::normalize( self::body( $request ), $map, $application, $create, time() );
 	}
 
 	/**

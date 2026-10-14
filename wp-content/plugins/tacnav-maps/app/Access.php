@@ -77,6 +77,13 @@ class Access {
 		}
 
 		$origin = isset( $geo['origin'] ) ? (string) $geo['origin'] : '';
+		if ( ! empty( $viewer['is_application'] ) ) {
+			return 'application' === $origin &&
+				isset( $geo['application_id'], $viewer['application_id'] ) &&
+				(int) $geo['application_id'] > 0 &&
+				(int) $geo['application_id'] === (int) $viewer['application_id'];
+		}
+
 		if ( 'team' !== $origin ) {
 			return false;
 		}

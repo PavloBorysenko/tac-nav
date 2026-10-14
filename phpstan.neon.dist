@@ -6,12 +6,17 @@ parameters:
     level: 5
     bootstrapFiles:
         - wp-content/plugins/tacnav-maps/phpstan-bootstrap.php
+        - wp-content/plugins/tacnav-devices/phpstan-bootstrap.php
     paths:
         - wp-content/plugins/tacnav-maps
+        - wp-content/plugins/tacnav-devices
     excludePaths:
         - wp-content/plugins/tacnav-maps/tests
         - wp-content/plugins/tacnav-maps/phpstan-bootstrap.php
         - wp-content/plugins/tacnav-maps/vendor
+        - wp-content/plugins/tacnav-devices/tests
+        - wp-content/plugins/tacnav-devices/phpstan-bootstrap.php
+        - wp-content/plugins/tacnav-devices/vendor(?)
         - tools/
         - vendor/(?)
         - node_modules/(?)

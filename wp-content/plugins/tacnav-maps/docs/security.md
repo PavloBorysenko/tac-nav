@@ -10,6 +10,10 @@ Capabilities: `tacnav_manage_catalog`, `tacnav_manage_geo`, `tacnav_view_canvas`
 
 REST namespace `tacnav/v1` allows staff, a player whose team is listed on a published map, or an anonymous guest token `t`. Cookie authentication plus `X-WP-Nonce` (`wp_rest`) is required for signed-in calls. Guests send the token on the query string. List and mutate callbacks apply visibility and edit resolvers server-side. Player writes are stamped to that team and may use only that team's palette. Self-points are not editable.
 
+A credential-owning plugin may authenticate a non-user application through `tacnav_maps_application_principal`. TacNav Maps independently validates its selected map/team against the supplied allowed scopes and current map membership. Application creates are stamped with the authenticated application id and selected team/map, may use any existing global catalog icon, and may use empty visibility for a public object. Applications can update or delete only ordinary `origin=application` objects carrying their own application id. Existing staff, player, and guest paths are unchanged.
+
+Geometry search is available only to a valid scoped application. It intentionally bypasses team visibility and object origin within the selected map, excludes expired rows, and returns minimal geometry facts. It never crosses maps or exposes ownership/application metadata and never derives game outcomes.
+
 Catalog meta boxes verify `tacnav_*_nonce` fields. The player page verifies `tacnav_player`. The canvas returns 403 unless the viewer is staff, a listed player on a published map, or an anonymous guest with a valid token for a listed team. A signed-in user who is not staff and whose team is not listed is refused even with a token. Guest tokens are `{teamId}.{truncated HMAC of mapId|teamId}` using the WordPress auth salt. The guest-link page requires `tacnav_view_canvas`.
 
 ## Implementation references

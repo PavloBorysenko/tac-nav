@@ -318,7 +318,7 @@ class Admin {
 					'icon_id'     => isset( $row['icon_id'] ) ? (int) $row['icon_id'] : 0,
 					'title'       => isset( $row['title'] ) ? sanitize_text_field( (string) $row['title'] ) : '',
 					'description' => isset( $row['description'] ) ? sanitize_text_field( (string) $row['description'] ) : '',
-					'ttl_minutes' => isset( $row['ttl_minutes'] ) && '' !== $row['ttl_minutes'] ? max( 0, (int) $row['ttl_minutes'] ) : 3,
+					'ttl_seconds' => isset( $row['ttl_seconds'] ) && '' !== $row['ttl_seconds'] ? max( 0, (int) $row['ttl_seconds'] ) : 180,
 				);
 			}
 		}

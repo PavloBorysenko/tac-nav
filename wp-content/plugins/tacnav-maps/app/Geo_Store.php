@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Geo_Store {
 
-	const KINDS = array( 'marker', 'polyline', 'polygon', 'circle' );
+	const KINDS = Geometry_Service::KINDS;
 
 	/**
 	 * Insert a geo object.
@@ -30,7 +30,32 @@ class Geo_Store {
 			return $prepared;
 		}
 
-		$ok = $wpdb->insert( Activator::table_name(), $prepared['row'], $prepared['formats'] );
+		$row   = $prepared['row'];
+		$table = Activator::table_name();
+		$ok    = $wpdb->query(
+			$wpdb->prepare(
+				'INSERT INTO %i
+				(map_id, kind, geometry, owner_team_id, visible_team_ids, origin, application_id, created_by_user_id, position_accuracy_m, icon_id, title, description, expires_at, created_at, updated_at, spatial_projection)
+				VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %s, NULLIF(%d, 0), %d, NULLIF(%f, -1), NULLIF(%d, 0), %s, %s, NULLIF(%s, \'\'), %s, %s, ST_GeomFromText(%s))',
+				$table,
+				$row['map_id'],
+				$row['kind'],
+				$row['geometry'],
+				$row['owner_team_id'],
+				$row['visible_team_ids'],
+				$row['origin'],
+				$row['application_id'],
+				$row['created_by_user_id'],
+				$row['position_accuracy_m'],
+				$row['icon_id'],
+				$row['title'],
+				$row['description'],
+				$row['expires_at'],
+				$row['created_at'],
+				$row['updated_at'],
+				$prepared['projection_wkt']
+			)
+		);
 		if ( false === $ok ) {
 			return new \WP_Error( 'tacnav_geo_insert', __( 'Could not save the geo object.', 'tacnav-maps' ), array( 'status' => 500 ) );
 		}
@@ -66,20 +91,40 @@ class Geo_Store {
 			return $prepared;
 		}
 
-		$where     = array( 'id' => (int) $id );
-		$where_fmt = array( '%d' );
-		if ( '' !== $expected ) {
-			$where['updated_at'] = $expected;
-			$where_fmt[]         = '%s';
-		}
-
-		$ok = $wpdb->update(
-			Activator::table_name(),
-			$prepared['row'],
-			$where,
-			$prepared['formats'],
-			$where_fmt
+		$row   = $prepared['row'];
+		$table = Activator::table_name();
+		$sql   = 'UPDATE %i SET
+			map_id = %d, kind = %s, geometry = %s, owner_team_id = NULLIF(%d, 0),
+			visible_team_ids = %s, origin = %s, application_id = NULLIF(%d, 0),
+			created_by_user_id = %d, position_accuracy_m = NULLIF(%f, -1),
+			icon_id = NULLIF(%d, 0), title = %s, description = %s,
+			expires_at = NULLIF(%s, \'\'), updated_at = %s,
+			spatial_projection = ST_GeomFromText(%s)
+			WHERE id = %d';
+		$args  = array(
+			$table,
+			$row['map_id'],
+			$row['kind'],
+			$row['geometry'],
+			$row['owner_team_id'],
+			$row['visible_team_ids'],
+			$row['origin'],
+			$row['application_id'],
+			$row['created_by_user_id'],
+			$row['position_accuracy_m'],
+			$row['icon_id'],
+			$row['title'],
+			$row['description'],
+			$row['expires_at'],
+			$row['updated_at'],
+			$prepared['projection_wkt'],
+			(int) $id,
 		);
+		if ( '' !== $expected ) {
+			$sql   .= ' AND updated_at = %s';
+			$args[] = $expected;
+		}
+		$ok = $wpdb->query( $wpdb->prepare( $sql, $args ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL has fixed clauses and is prepared with the assembled values.
 		if ( false === $ok ) {
 			return new \WP_Error( 'tacnav_geo_update', __( 'Could not update the geo object.', 'tacnav-maps' ), array( 'status' => 500 ) );
 		}
@@ -178,6 +223,57 @@ class Geo_Store {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Search indexed candidates and exact-filter their canonical geometry.
+	 *
+	 * @param int                  $map_id   Map post ID.
+	 * @param string               $kind     Query kind.
+	 * @param array<string, mixed> $geometry Normalized query geometry.
+	 * @param int                  $now      Server timestamp.
+	 * @return array<int, array<string, mixed>>|\WP_Error
+	 */
+	public function search( $map_id, $kind, $geometry, $now ) {
+		global $wpdb;
+
+		$table = Activator::table_name();
+		$rows  = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, kind, geometry, position_accuracy_m
+				FROM %i FORCE INDEX (spatial_projection)
+				WHERE map_id = %d
+				AND (expires_at IS NULL OR expires_at > %s)
+				AND MBRIntersects(spatial_projection, ST_GeomFromText(%s))
+				ORDER BY id ASC',
+				$table,
+				(int) $map_id,
+				gmdate( 'Y-m-d H:i:s', $now ),
+				Geometry_Service::projection_wkt( $kind, $geometry )
+			),
+			ARRAY_A
+		);
+		if ( ! is_array( $rows ) ) {
+			return new \WP_Error( 'tacnav_spatial_search', __( 'Indexed geometry search failed.', 'tacnav-maps' ), array( 'status' => 500 ) );
+		}
+
+		$results = array();
+		foreach ( $rows as $row ) {
+			$object_geometry = json_decode( (string) $row['geometry'], true );
+			if ( ! is_array( $object_geometry ) || ! Geometry_Service::intersects( $kind, $geometry, (string) $row['kind'], $object_geometry ) ) {
+				continue;
+			}
+			$result = array(
+				'id'       => (int) $row['id'],
+				'kind'     => (string) $row['kind'],
+				'geometry' => $object_geometry,
+			);
+			if ( null !== $row['position_accuracy_m'] && '' !== (string) $row['position_accuracy_m'] ) {
+				$result['position_accuracy_m'] = (float) $row['position_accuracy_m'];
+			}
+			$results[] = $result;
+		}
+		return $results;
 	}
 
 	/**
@@ -284,7 +380,7 @@ class Geo_Store {
 			return new \WP_Error( 'tacnav_geo_map', __( 'Map is required.', 'tacnav-maps' ), array( 'status' => 400 ) );
 		}
 
-		$geometry = $this->normalize_geometry( $kind, isset( $data['geometry'] ) ? $data['geometry'] : array() );
+		$geometry = Geometry_Service::normalize( $kind, isset( $data['geometry'] ) ? $data['geometry'] : array() );
 		if ( is_wp_error( $geometry ) ) {
 			return $geometry;
 		}
@@ -297,8 +393,16 @@ class Geo_Store {
 		$owner  = isset( $data['owner_team_id'] ) ? (int) $data['owner_team_id'] : 0;
 		$icon   = isset( $data['icon_id'] ) ? (int) $data['icon_id'] : 0;
 		$origin = isset( $data['origin'] ) ? sanitize_key( (string) $data['origin'] ) : 'staff';
-		if ( ! in_array( $origin, array( 'staff', 'team' ), true ) ) {
+		if ( ! in_array( $origin, array( 'staff', 'team', 'application' ), true ) ) {
 			$origin = 'staff';
+		}
+		$application_id = isset( $data['application_id'] ) ? (int) $data['application_id'] : 0;
+		$accuracy       = -1.0;
+		if ( array_key_exists( 'position_accuracy_m', $data ) && null !== $data['position_accuracy_m'] ) {
+			if ( ! is_numeric( $data['position_accuracy_m'] ) || (float) $data['position_accuracy_m'] < 0 ) {
+				return new \WP_Error( 'tacnav_position_accuracy', __( 'Position accuracy must be zero or greater.', 'tacnav-maps' ), array( 'status' => 400 ) );
+			}
+			$accuracy = (float) $data['position_accuracy_m'];
 		}
 
 		$expires = null;
@@ -309,115 +413,29 @@ class Geo_Store {
 		$now = gmdate( 'Y-m-d H:i:s' );
 
 		$row = array(
-			'map_id'             => $map_id,
-			'kind'               => $kind,
-			'geometry'           => wp_json_encode( $geometry ),
-			'owner_team_id'      => $owner > 0 ? $owner : null,
-			'visible_team_ids'   => wp_json_encode( $visible ),
-			'origin'             => $origin,
-			'created_by_user_id' => isset( $data['created_by_user_id'] ) ? (int) $data['created_by_user_id'] : get_current_user_id(),
-			'icon_id'            => $icon > 0 ? $icon : null,
-			'title'              => isset( $data['title'] ) ? sanitize_text_field( (string) $data['title'] ) : '',
-			'description'        => isset( $data['description'] ) ? wp_kses_post( (string) $data['description'] ) : '',
-			'expires_at'         => $expires,
-			'updated_at'         => $now,
+			'map_id'              => $map_id,
+			'kind'                => $kind,
+			'geometry'            => wp_json_encode( $geometry ),
+			'owner_team_id'       => $owner > 0 ? $owner : null,
+			'visible_team_ids'    => wp_json_encode( $visible ),
+			'origin'              => $origin,
+			'application_id'      => $application_id > 0 ? $application_id : 0,
+			'created_by_user_id'  => isset( $data['created_by_user_id'] ) ? (int) $data['created_by_user_id'] : get_current_user_id(),
+			'position_accuracy_m' => $accuracy,
+			'icon_id'             => $icon > 0 ? $icon : null,
+			'title'               => isset( $data['title'] ) ? sanitize_text_field( (string) $data['title'] ) : '',
+			'description'         => isset( $data['description'] ) ? wp_kses_post( (string) $data['description'] ) : '',
+			'expires_at'          => $expires,
+			'updated_at'          => $now,
 		);
 
-		$formats = array( '%d', '%s', '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' );
 		if ( $create ) {
 			$row['created_at'] = $now;
-			$formats[]         = '%s';
 		}
 
 		return array(
-			'row'     => $row,
-			'formats' => $formats,
-		);
-	}
-
-	/**
-	 * Validate geometry for a kind.
-	 *
-	 * @param string              $kind     Kind.
-	 * @param mixed $geometry Geometry.
-	 * @return array<string, mixed>|\WP_Error
-	 */
-	private function normalize_geometry( $kind, $geometry ) {
-		if ( ! is_array( $geometry ) ) {
-			return new \WP_Error( 'tacnav_geo_geometry', __( 'Invalid geometry.', 'tacnav-maps' ), array( 'status' => 400 ) );
-		}
-
-		if ( 'marker' === $kind ) {
-			return $this->point( $geometry );
-		}
-
-		if ( 'circle' === $kind ) {
-			$point = $this->point( $geometry );
-			if ( is_wp_error( $point ) ) {
-				return $point;
-			}
-			$radius = isset( $geometry['radius'] ) ? (float) $geometry['radius'] : 0;
-			if ( $radius <= 0 ) {
-				return new \WP_Error( 'tacnav_geo_radius', __( 'Circle radius must be greater than zero.', 'tacnav-maps' ), array( 'status' => 400 ) );
-			}
-			$point['radius'] = $radius;
-			return $point;
-		}
-
-		$path = isset( $geometry['path'] ) && is_array( $geometry['path'] ) ? $geometry['path'] : array();
-		$pts  = array();
-		foreach ( $path as $pair ) {
-			if ( ! is_array( $pair ) ) {
-				continue;
-			}
-			$pt = $this->point(
-				array(
-					'lat' => $pair['lat'] ?? ( $pair[0] ?? null ),
-					'lng' => $pair['lng'] ?? ( $pair[1] ?? null ),
-				)
-			);
-			if ( is_wp_error( $pt ) ) {
-				return $pt;
-			}
-			$pts[] = array( $pt['lat'], $pt['lng'] );
-		}
-
-		$min = 'polyline' === $kind ? 2 : 3;
-		if ( count( $pts ) < $min ) {
-			return new \WP_Error( 'tacnav_geo_path', __( 'Not enough vertices.', 'tacnav-maps' ), array( 'status' => 400 ) );
-		}
-
-		if ( 'polygon' === $kind ) {
-			$first = $pts[0];
-			$last  = $pts[ count( $pts ) - 1 ];
-			if ( $first[0] !== $last[0] || $first[1] !== $last[1] ) {
-				$pts[] = $first;
-			}
-		}
-
-		return array( 'path' => $pts );
-	}
-
-	/**
-	 * Lat/lng pair.
-	 *
-	 * @param array<string, mixed> $geometry Input.
-	 * @return array<string, float>|\WP_Error
-	 */
-	private function point( $geometry ) {
-		if ( ! isset( $geometry['lat'], $geometry['lng'] ) ) {
-			return new \WP_Error( 'tacnav_geo_point', __( 'Latitude and longitude are required.', 'tacnav-maps' ), array( 'status' => 400 ) );
-		}
-
-		$lat = (float) $geometry['lat'];
-		$lng = (float) $geometry['lng'];
-		if ( $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180 ) {
-			return new \WP_Error( 'tacnav_geo_point', __( 'Coordinates are out of range.', 'tacnav-maps' ), array( 'status' => 400 ) );
-		}
-
-		return array(
-			'lat' => $lat,
-			'lng' => $lng,
+			'row'            => $row,
+			'projection_wkt' => Geometry_Service::projection_wkt( $kind, $geometry ),
 		);
 	}
 
@@ -432,20 +450,22 @@ class Geo_Store {
 		$visible  = json_decode( (string) $row['visible_team_ids'], true );
 
 		return array(
-			'id'                 => (int) $row['id'],
-			'map_id'             => (int) $row['map_id'],
-			'kind'               => (string) $row['kind'],
-			'geometry'           => is_array( $geometry ) ? $geometry : array(),
-			'owner_team_id'      => '' === (string) $row['owner_team_id'] ? null : (int) $row['owner_team_id'],
-			'visible_team_ids'   => is_array( $visible ) ? array_map( 'intval', $visible ) : array(),
-			'origin'             => (string) $row['origin'],
-			'created_by_user_id' => (int) $row['created_by_user_id'],
-			'icon_id'            => '' === (string) $row['icon_id'] ? null : (int) $row['icon_id'],
-			'title'              => (string) $row['title'],
-			'description'        => (string) $row['description'],
-			'expires_at'         => $row['expires_at'] ? (string) $row['expires_at'] : '',
-			'created_at'         => (string) $row['created_at'],
-			'updated_at'         => (string) $row['updated_at'],
+			'id'                  => (int) $row['id'],
+			'map_id'              => (int) $row['map_id'],
+			'kind'                => (string) $row['kind'],
+			'geometry'            => is_array( $geometry ) ? $geometry : array(),
+			'owner_team_id'       => '' === (string) $row['owner_team_id'] ? null : (int) $row['owner_team_id'],
+			'visible_team_ids'    => is_array( $visible ) ? array_map( 'intval', $visible ) : array(),
+			'origin'              => (string) $row['origin'],
+			'application_id'      => '' === (string) $row['application_id'] ? null : (int) $row['application_id'],
+			'created_by_user_id'  => (int) $row['created_by_user_id'],
+			'position_accuracy_m' => '' === (string) $row['position_accuracy_m'] ? null : (float) $row['position_accuracy_m'],
+			'icon_id'             => '' === (string) $row['icon_id'] ? null : (int) $row['icon_id'],
+			'title'               => (string) $row['title'],
+			'description'         => (string) $row['description'],
+			'expires_at'          => $row['expires_at'] ? (string) $row['expires_at'] : '',
+			'created_at'          => (string) $row['created_at'],
+			'updated_at'          => (string) $row['updated_at'],
 		);
 	}
 }
