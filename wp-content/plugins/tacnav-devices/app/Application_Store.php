@@ -62,13 +62,19 @@ class Application_Store {
 		if ( '' === $type || '' === $name ) {
 			return new \WP_Error( 'tacnav_application_required', __( 'Application type and name are required.', 'tacnav-devices' ) );
 		}
+		$reference = Validation::reference_settings(
+			isset( $data['reference_settings'] ) ? $data['reference_settings'] : array()
+		);
+		if ( is_wp_error( $reference ) ) {
+			return $reference;
+		}
 
 		$tables = Activator::tables();
 		$now    = current_time( 'mysql', true );
 		$row    = array(
 			'application_type'   => $type,
 			'name'               => $name,
-			'reference_settings' => wp_json_encode( isset( $data['reference_settings'] ) && is_array( $data['reference_settings'] ) ? $data['reference_settings'] : array() ),
+			'reference_settings' => wp_json_encode( $reference ),
 			'default_map_id'     => $default_map > 0 ? $default_map : null,
 			'default_team_id'    => $default_team > 0 ? $default_team : null,
 			'updated_at'         => $now,

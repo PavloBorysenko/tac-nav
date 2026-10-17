@@ -6,7 +6,7 @@ Provide one revocable phone identity per staff-managed application and a durable
 
 ## Provisioning contract
 
-Organizer and Administrator access uses the existing TacNav Maps staff capabilities. An application definition has a type, name, reference-settings JSON, allowed maps and teams, and defaults. Defaults must belong to their allowed scopes, and a selected team must be listed on the selected map.
+Organizer and Administrator access uses the existing TacNav Maps staff capabilities. An application definition has a type, name, allowed maps and teams, defaults, and mortar reference settings (name, non-empty firing and aiming mode sets, radii, elevations, distances, flight, impact TTL, GPS, and acoustic fields). Staff enter those fields on the device-applications form rather than as raw JSON. Empty firing or aiming sets cannot be saved. Defaults must belong to their allowed scopes, and a selected team must be listed on the selected map. The activation handoff page shows only the QR (server URL plus code), the manual code, and the current APK link.
 
 An activation code is random, stored only as a SHA-256 hash, expires after 15 minutes, and is consumed atomically. QR and manual handoff carry the same server URL and code. Successful activation revokes previous installation credentials and FCM registration, then returns the application identity, allowed scopes, defaults, reference settings, service metadata, and a new opaque bearer. Only its hash persists. Reactivation therefore restores the current server reference while invalidating the former phone immediately.
 

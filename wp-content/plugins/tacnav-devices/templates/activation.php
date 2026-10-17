@@ -17,6 +17,10 @@ defined( 'ABSPATH' ) || exit;
 	<meta charset="<?php bloginfo( 'charset' ); ?>">
 	<title><?php esc_html_e( 'Tac Nav Mortar activation', 'tacnav-devices' ); ?></title>
 	<?php wp_print_styles( 'common' ); ?>
+	<style>
+		#tacnav-activation-qr { display: flex; justify-content: center; margin: 1.5rem 0; }
+		#tacnav-activation-qr svg { display: block; max-width: 16rem; height: auto; background: #fff; }
+	</style>
 </head>
 <body class="wp-core-ui">
 	<main class="wrap">

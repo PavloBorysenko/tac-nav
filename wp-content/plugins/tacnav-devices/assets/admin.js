@@ -1,15 +1,19 @@
 ( function () {
 	'use strict';
 
-	const target = document.getElementById( 'tacnav-activation-qr' );
-	if ( ! target || typeof window.QRCode === 'undefined' ) {
+	var target = document.getElementById( 'tacnav-activation-qr' );
+	if ( ! target || typeof window.qrcode !== 'function' ) {
+		return;
+	}
+
+	var payload = target.getAttribute( 'data-payload' ) || '';
+	if ( ! payload ) {
 		return;
 	}
 
 	// The vendored QR library renders locally; the activation secret is never sent elsewhere.
-	new window.QRCode( target, {
-		text: target.dataset.payload,
-		width: 256,
-		height: 256,
-	} );
-} )();
+	var qr = window.qrcode( 0, 'M' );
+	qr.addData( payload );
+	qr.make();
+	target.innerHTML = qr.createSvgTag( 4, 8 );
+}() );

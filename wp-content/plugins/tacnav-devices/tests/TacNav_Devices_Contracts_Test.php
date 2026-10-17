@@ -106,6 +106,51 @@ class TacNav_Devices_Contracts_Test extends TestCase {
 	}
 
 	/**
+	 * Staff reference settings require at least one firing mode and one aiming mode.
+	 */
+	public function test_empty_reference_mode_sets_are_refused() {
+		$no_firing = Validation::reference_settings(
+			array(
+				'firing_modes' => array(),
+				'aiming_modes' => array( 'free' ),
+			)
+		);
+		$no_aiming = Validation::reference_settings(
+			array(
+				'firing_modes' => array( 'button' ),
+				'aiming_modes' => array(),
+			)
+		);
+
+		$this->assertInstanceOf( WP_Error::class, $no_firing );
+		$this->assertSame( 'tacnav_firing_required', $no_firing->get_error_code() );
+		$this->assertInstanceOf( WP_Error::class, $no_aiming );
+		$this->assertSame( 'tacnav_aiming_required', $no_aiming->get_error_code() );
+	}
+
+	/**
+	 * A complete staff form stores the selected modes and gameplay numbers.
+	 */
+	public function test_reference_settings_keep_selected_gameplay_values() {
+		$result = Validation::reference_settings(
+			array(
+				'mortar_name'          => 'Crew A',
+				'firing_modes'         => array( 'button', 'acoustic' ),
+				'aiming_modes'         => array( 'free', 'approximate_coordinates' ),
+				'approximate_radius_m' => 40,
+				'damage_radius_m'      => 8,
+			)
+		);
+
+		$this->assertIsArray( $result );
+		$this->assertSame( 'Crew A', $result['mortar_name'] );
+		$this->assertSame( array( 'button', 'acoustic' ), $result['firing_modes'] );
+		$this->assertSame( array( 'free', 'approximate_coordinates' ), $result['aiming_modes'] );
+		$this->assertSame( 40.0, $result['approximate_radius_m'] );
+		$this->assertSame( 8.0, $result['damage_radius_m'] );
+	}
+
+	/**
 	 * Retention windows preserve a 12-hour pending delivery.
 	 */
 	public function test_retention_windows_match_mailbox_contract() {

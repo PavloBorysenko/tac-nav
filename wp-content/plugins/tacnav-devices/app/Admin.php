@@ -44,6 +44,16 @@ class Admin {
 		$applications = ( new Application_Store() )->all();
 		$action       = admin_url( 'admin-post.php' );
 		$release      = self::release_metadata();
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- staff list filter after capability check.
+		$edit_id = isset( $_GET['edit'] ) ? (int) wp_unslash( $_GET['edit'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+		$tacnav_draft     = $edit_id > 0 ? ( new Application_Store() )->get( $edit_id ) : null;
+		$tacnav_reference = Validation::reference_settings(
+			is_array( $tacnav_draft ) && isset( $tacnav_draft['reference_settings'] ) ? $tacnav_draft['reference_settings'] : array()
+		);
+		if ( is_wp_error( $tacnav_reference ) ) {
+			$tacnav_reference = Validation::reference_defaults();
+		}
 		require TACNAV_DEVICES_DIR . 'templates/admin-page.php';
 	}
 
@@ -55,9 +65,12 @@ class Admin {
 	public static function save_application() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_save_application' );
-		$reference = json_decode( (string) wp_unslash( isset( $_POST['reference_settings'] ) ? $_POST['reference_settings'] : '{}' ), true );
-		if ( ! is_array( $reference ) ) {
-			wp_die( esc_html__( 'Reference settings must be valid JSON.', 'tacnav-devices' ) );
+		$posted                 = wp_unslash( $_POST );
+		$posted['firing_modes'] = isset( $posted['firing_modes'] ) ? $posted['firing_modes'] : array();
+		$posted['aiming_modes'] = isset( $posted['aiming_modes'] ) ? $posted['aiming_modes'] : array();
+		$reference              = Validation::reference_settings( $posted );
+		if ( is_wp_error( $reference ) ) {
+			wp_die( esc_html( $reference->get_error_message() ) );
 		}
 		$result = ( new Application_Store() )->save(
 			array(
@@ -91,6 +104,8 @@ class Admin {
 		if ( is_wp_error( $code ) ) {
 			wp_die( esc_html( $code->get_error_message() ) );
 		}
+		self::scripts();
+		wp_enqueue_script( 'tacnav-devices-admin' );
 		$release = self::release_metadata();
 		$payload = wp_json_encode(
 			array(
