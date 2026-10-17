@@ -26,4 +26,4 @@ Site Editor user styles for header or footer color override this default. Do not
 - `wp-content/themes/tacnav/theme.json` — palette `khaki` and `styles.css` for header/footer template-part backgrounds
 - `wp-content/themes/tacnav/functions.php` — `tacnav_load_textdomain`, `tacnav_enqueue_chrome`
 - `wp-content/themes/tacnav/assets/topographic.png` — header and footer sheet
-- `wp-content/themes/tacnav/templates/front-page.html` — site front with Organizer and Player controls
+- `wp-content/themes/tacnav/templates/front-page.html` — site front with Organizer, Player, and Mortar app controls

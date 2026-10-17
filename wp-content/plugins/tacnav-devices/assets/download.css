@@ -1,0 +1,51 @@
+.tacnav-mortar-download {
+	margin: 0;
+	min-height: 100vh;
+	background: #1f2418;
+	color: #f4efe3;
+	font-family: system-ui, sans-serif;
+}
+
+.tacnav-mortar-download__main {
+	box-sizing: border-box;
+	max-width: 28rem;
+	margin: 0 auto;
+	padding: 2rem 1.25rem 3rem;
+}
+
+.tacnav-mortar-download h1 {
+	margin: 0 0 0.75rem;
+	font-size: 2rem;
+	line-height: 1.15;
+}
+
+.tacnav-mortar-download__kicker,
+.tacnav-mortar-download__version,
+.tacnav-mortar-download__note,
+.tacnav-mortar-download__empty {
+	color: #d4cbb3;
+}
+
+.tacnav-mortar-download__button {
+	display: inline-block;
+	padding: 0.9rem 1.25rem;
+	border-radius: 0.25rem;
+	background: #d4cbb3;
+	color: #1f2418;
+	font-weight: 700;
+	text-decoration: none;
+}
+
+.tacnav-mortar-download ol {
+	padding-left: 1.2rem;
+}
+
+.tacnav-mortar-download a {
+	color: #d4cbb3;
+}
+
+.tacnav-mortar-download__button:focus,
+.tacnav-mortar-download a:focus {
+	outline: 2px solid #f4efe3;
+	outline-offset: 2px;
+}

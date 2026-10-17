@@ -32,7 +32,7 @@ The new system crosses a WordPress map plugin, a dependent device-management plu
 
 Android source will live at `apps/tacnav-mortar-android/`. Device server functionality will live in a new first-party `wp-content/plugins/tacnav-devices/` plugin that declares `tacnav-maps` as a runtime dependency. `tacnav-maps` remains the owner of catalog icons, geo objects, expiry, and search.
 
-This keeps one history and coordinated specifications without placing Gradle sources in `uploads` or plugin release packages. Generated Gradle output, local SDK paths, APKs, signing stores, and private Firebase credentials remain ignored. A prebuilt signed APK may be uploaded as a release artifact and referenced by `tacnav-devices`.
+This keeps one history and coordinated specifications without placing Gradle sources in `uploads` or plugin release packages. Generated Gradle output, local SDK paths, APKs, signing stores, and private Firebase credentials remain ignored. Staff upload one built APK to the live WordPress site; that file becomes the single latest download at `/tacnav-mortar/` for every player. The front page exposes that page as **Mortar app**. Players never enter wp-admin. WordPress does not build or sign the package.
 
 ### 2. Device authentication is an application principal, not a WordPress user
 
@@ -154,7 +154,7 @@ Approximate-coordinate guidance uses a protected radius initially set to 30 metr
 
 ### 13. Signing and release ownership stay outside WordPress
 
-The release keystore is created once for `com.tacnav.mortar`, owned by the project owner, ignored by Git, and backed up in at least two encrypted locations with separately retained credentials. WordPress hosts or links only the signed APK and public version metadata. Losing the keystore is treated as a non-recoverable update-path failure requiring uninstall/reinstall.
+The release keystore is created once for `com.tacnav.mortar`, owned by the project owner, ignored by Git, and backed up in at least two encrypted locations with separately retained credentials. WordPress hosts or links only the signed APK and public version metadata. A new staff upload replaces the previous latest file. Losing the keystore is treated as a non-recoverable update-path failure requiring uninstall/reinstall.
 
 The supplied 512px source icon is converted into legacy, adaptive foreground/background, and monochrome resources; the adaptive foreground is inset so the compass letters and mortar legs survive launcher masks.
 

@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Activator {
 
-	const DB_VERSION = '2';
+	const DB_VERSION = '3';
 
 	/**
 	 * Logical table names.
@@ -53,6 +53,8 @@ class Activator {
 		}
 
 		self::install_schema();
+		Release::register_rewrites();
+		flush_rewrite_rules( false );
 		self::schedule_cleanup();
 	}
 
@@ -79,6 +81,8 @@ class Activator {
 		}
 
 		self::install_schema();
+		Release::register_rewrites();
+		flush_rewrite_rules( false );
 	}
 
 	/**

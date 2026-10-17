@@ -28,6 +28,9 @@ class Plugin {
 		}
 
 		add_action( 'init', array( Activator::class, 'maybe_upgrade' ), 99 );
+		add_action( 'init', array( Release::class, 'register_rewrites' ) );
+		add_filter( 'query_vars', array( Release::class, 'query_vars' ) );
+		add_action( 'template_redirect', array( Release::class, 'template_redirect' ) );
 		add_action( 'rest_api_init', array( REST::class, 'register' ) );
 		add_action( 'admin_menu', array( Admin::class, 'menu' ) );
 		add_action( 'admin_enqueue_scripts', array( Admin::class, 'scripts' ) );

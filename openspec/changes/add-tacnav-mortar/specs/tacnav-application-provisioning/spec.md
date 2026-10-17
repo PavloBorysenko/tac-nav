@@ -97,9 +97,14 @@ An authenticated application SHALL be able to retrieve every current icon in the
 
 ### Requirement: Staff can hand off the current Android package
 
-Staff SHALL be able to publish download metadata for the current signed Tac Nav Mortar APK, including package id, version, and download URL. A device or staff download page SHALL expose that metadata without exposing a signing key or private messaging credential.
+Staff SHALL be able to publish the current Tac Nav Mortar APK by uploading the built file or supplying an HTTPS URL, plus package id and version. The same WordPress site SHALL expose one public latest-version page that any player can open without signing in. That page MUST identify `com.tacnav.mortar`, show the published version, and offer the APK. It MUST NOT expose a signing key, activation code, or private messaging credential. A later staff upload SHALL replace the previous latest file.
 
 #### Scenario: Download page offers the current APK
 
 - **WHEN** staff publish a Tac Nav Mortar release
-- **THEN** the handoff page identifies `com.tacnav.mortar`, its version, and its APK download
+- **THEN** the public download page and the staff handoff page identify `com.tacnav.mortar`, its version, and its APK download
+
+#### Scenario: Players use the site, not wp-admin
+
+- **WHEN** a player opens the site front and follows Mortar app
+- **THEN** they reach the public latest-version page and can download the current APK without a WordPress account

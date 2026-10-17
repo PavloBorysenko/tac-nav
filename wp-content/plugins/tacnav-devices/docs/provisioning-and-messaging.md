@@ -12,7 +12,7 @@ An activation code is random, stored only as a SHA-256 hash, expires after 15 mi
 
 Devices should store the bearer in Android secure storage. Do not place activation codes or bearers in URLs, logs, screenshots, analytics, WordPress options, or support exports. Staff revocation clears the active phone's FCM registration and makes its bearer fail.
 
-The staff page also publishes the current Android package metadata. Its package is always `com.tacnav.mortar`; staff supply only the version and HTTPS APK URL. Signing keys and Firebase service credentials are not release metadata.
+The staff page publishes the current Android package. Its package is always `com.tacnav.mortar`. Staff upload a built APK (or paste an HTTPS URL) and a version. That upload replaces the previous latest file under `uploads/tacnav-devices/` (not in Git). Players get it from the public page `/tacnav-mortar/` or the front-page **Mortar app** control, then activate with a staff QR or one-time code. Signing keys and Firebase service credentials are not release metadata.
 
 ## Application context
 

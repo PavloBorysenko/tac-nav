@@ -38,6 +38,7 @@ defined( 'ABSPATH' ) || exit;
 		</dl>
 		<?php if ( '' !== $release['download_url'] ) : ?>
 			<p><a class="button button-primary" href="<?php echo esc_url( $release['download_url'] ); ?>"><?php esc_html_e( 'Download APK', 'tacnav-devices' ); ?></a></p>
+			<p><a href="<?php echo esc_url( \TacNav\Devices\Release::public_page_url() ); ?>"><?php esc_html_e( 'Public download page', 'tacnav-devices' ); ?></a></p>
 		<?php endif; ?>
 		<p><a class="button" href="<?php echo esc_url( admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNav\Devices\Admin::PAGE ) ); ?>"><?php esc_html_e( 'Back', 'tacnav-devices' ); ?></a></p>
 	</main>

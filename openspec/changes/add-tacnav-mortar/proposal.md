@@ -6,7 +6,7 @@ Tac Nav needs a field-device application that turns a mounted Android phone's lo
 
 ## What Changes
 
-- Add a first-party `tacnav-devices` WordPress plugin, dependent on `tacnav-maps`, for device definitions, one-time QR/manual activation, revocable credentials, allowed map/team scopes, APK distribution metadata, addressed mailboxes, and Firebase Cloud Messaging wake-up signals.
+- Add a first-party `tacnav-devices` WordPress plugin, dependent on `tacnav-maps`, for device definitions, one-time QR/manual activation, revocable credentials, allowed map/team scopes, latest-APK hosting on the same site, addressed mailboxes, and Firebase Cloud Messaging wake-up signals.
 - Add application-authenticated geo-object access and map-scoped spatial search to `tacnav-maps`; search returns the ids and complete geometries of all intersecting unexpired objects regardless of team visibility while leaving derived measurements to the calling application.
 - **BREAKING**: replace REST and stored preset input `ttl_minutes` with `ttl_seconds`; continue storing the absolute UTC expiry in the existing `expires_at` column and preserve an existing expiry when an update does not choose a new duration.
 - Add indexed spatial data alongside the canonical object geometry so map searches do not scan and decode every geometry row.
@@ -20,7 +20,7 @@ Tac Nav needs a field-device application that turns a mounted Android phone's lo
 
 ### New Capabilities
 
-- `tacnav-application-provisioning`: Staff-managed device definitions, reference settings, scoped one-device activation by QR or manual code, credential revocation, icon catalog access, and APK handoff.
+- `tacnav-application-provisioning`: Staff-managed device definitions, reference settings, scoped one-device activation by QR or manual code, credential revocation, icon catalog access, and a public latest-APK download on the game site.
 - `tacnav-geo-object-api`: Application-authenticated object writes, second-based lifetimes, indexed map-scoped geometry search, expiry filtering, and raw geometry results for device-side calculations.
 - `tacnav-device-messaging`: Object-addressed durable mailboxes, idempotent acknowledgement, retention, FCM wake-up signals, and catch-up after missed delivery.
 - `tacnav-mortar-android`: Sensor validation and calibration, range and aiming calculations, button and acoustic firing, concurrent flight timing, impact publication, independent per-object hit rolls, offline recovery, and local settings.

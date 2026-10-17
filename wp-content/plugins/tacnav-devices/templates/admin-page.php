@@ -58,13 +58,29 @@ defined( 'ABSPATH' ) || exit;
 	</table>
 
 	<h2><?php esc_html_e( 'Current Android release', 'tacnav-devices' ); ?></h2>
-	<form method="post" action="<?php echo esc_url( $action ); ?>">
+	<p><?php esc_html_e( 'Upload a built APK to host it on this site, or paste an HTTPS URL if the file is stored elsewhere. Signing keys stay off the site.', 'tacnav-devices' ); ?></p>
+	<form method="post" action="<?php echo esc_url( $action ); ?>" enctype="multipart/form-data">
 		<input type="hidden" name="action" value="tacnav_devices_save_release"><?php wp_nonce_field( 'tacnav_devices_save_release' ); ?>
 		<table class="form-table">
 			<tr><th><?php esc_html_e( 'Package', 'tacnav-devices' ); ?></th><td><code>com.tacnav.mortar</code></td></tr>
-			<tr><th><label for="tacnav-release-version"><?php esc_html_e( 'Version', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-release-version" name="version" value="<?php echo esc_attr( $release['version'] ); ?>"></td></tr>
+			<tr><th><label for="tacnav-release-version"><?php esc_html_e( 'Version', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-release-version" name="version" value="<?php echo esc_attr( $release['version'] ); ?>" placeholder="0.1.0"></td></tr>
+			<tr>
+				<th><label for="tacnav-release-apk"><?php esc_html_e( 'APK file', 'tacnav-devices' ); ?></label></th>
+				<td>
+					<input id="tacnav-release-apk" name="apk" type="file" accept=".apk,application/vnd.android.package-archive">
+					<?php if ( \TacNav\Devices\Release::has_stored_apk() ) : ?>
+						<p class="description"><?php esc_html_e( 'A package is already hosted. Uploading another file replaces it.', 'tacnav-devices' ); ?></p>
+					<?php endif; ?>
+				</td>
+			</tr>
 			<tr><th><label for="tacnav-release-url"><?php esc_html_e( 'APK URL', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-release-url" class="large-text" type="url" name="download_url" value="<?php echo esc_attr( $release['download_url'] ); ?>"></td></tr>
 		</table>
-		<?php submit_button( __( 'Publish release metadata', 'tacnav-devices' ) ); ?>
+		<?php submit_button( __( 'Publish release', 'tacnav-devices' ) ); ?>
 	</form>
+	<?php if ( '' !== $release['download_url'] ) : ?>
+		<p>
+			<a class="button button-primary" href="<?php echo esc_url( $release['download_url'] ); ?>"><?php esc_html_e( 'Download APK', 'tacnav-devices' ); ?></a>
+			<a class="button" href="<?php echo esc_url( \TacNav\Devices\Release::public_page_url() ); ?>"><?php esc_html_e( 'Open public download page', 'tacnav-devices' ); ?></a>
+		</p>
+	<?php endif; ?>
 </div>

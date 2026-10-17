@@ -18,7 +18,7 @@ The plugin registers the `tacnav-devices/v1` REST namespace, a capability-protec
 
 Deactivating this plugin must not disable `tacnav-maps`. Device functionality is unavailable without this plugin, while existing maps and geo objects remain owned by TacNav Maps.
 
-The plugin stores no plaintext activation code or bearer credential. Release metadata contains only package id, version, and APK URL. Firebase private credentials are read from an external file and never from a WordPress option.
+The plugin stores no plaintext activation code or bearer credential. Release metadata contains only package id, version, and APK URL. A staff-uploaded APK may be hosted in uploads and served from public `/tacnav-mortar/` routes. Firebase private credentials are read from an external file and never from a WordPress option.
 
 ## Implementation references
 
@@ -26,4 +26,5 @@ The plugin stores no plaintext activation code or bearer credential. Release met
 - `wp-content/plugins/tacnav-devices/app/Plugin.php` — dependency-aware hook wiring
 - `wp-content/plugins/tacnav-devices/app/Activator.php` — activation guard and schema-version entry point
 - `wp-content/plugins/tacnav-devices/app/Plugin.php` — REST, administration, maintenance, and integration hook wiring
+- `wp-content/plugins/tacnav-devices/app/Release.php` — APK upload validation, hosted file storage, and public download routes
 - `wp-content/plugins/tacnav-devices/composer.json` — PSR-4 namespace mapping

@@ -124,12 +124,30 @@ class Admin {
 	public static function save_release() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_save_release' );
+		$current = self::release_metadata();
+		$version = sanitize_text_field( (string) wp_unslash( isset( $_POST['version'] ) ? $_POST['version'] : '' ) );
+		$url     = esc_url_raw( (string) wp_unslash( isset( $_POST['download_url'] ) ? $_POST['download_url'] : '' ) );
+
+		if ( isset( $_FILES['apk'] ) && is_array( $_FILES['apk'] ) && ! empty( $_FILES['apk']['tmp_name'] ) ) {
+			$stored = Release::store_upload( $_FILES['apk'] );
+			if ( is_wp_error( $stored ) ) {
+				wp_die( esc_html( $stored->get_error_message() ) );
+			}
+			$url = $stored;
+		}
+		if ( '' === $url ) {
+			$url = $current['download_url'];
+		}
+		if ( '' === $url && Release::has_stored_apk() ) {
+			$url = Release::public_apk_url();
+		}
+
 		update_option(
 			'tacnav_devices_release',
 			array(
-				'package_id'   => 'com.tacnav.mortar',
-				'version'      => sanitize_text_field( (string) wp_unslash( isset( $_POST['version'] ) ? $_POST['version'] : '' ) ),
-				'download_url' => esc_url_raw( (string) wp_unslash( isset( $_POST['download_url'] ) ? $_POST['download_url'] : '' ) ),
+				'package_id'   => Release::PACKAGE_ID,
+				'version'      => $version,
+				'download_url' => $url,
 			),
 			false
 		);
@@ -145,10 +163,14 @@ class Admin {
 	public static function release_metadata() {
 		$value = get_option( 'tacnav_devices_release', array() );
 		$value = is_array( $value ) ? $value : array();
+		$url   = esc_url_raw( isset( $value['download_url'] ) ? (string) $value['download_url'] : '' );
+		if ( '' === $url && Release::has_stored_apk() ) {
+			$url = Release::public_apk_url();
+		}
 		return array(
-			'package_id'   => 'com.tacnav.mortar',
+			'package_id'   => Release::PACKAGE_ID,
 			'version'      => sanitize_text_field( isset( $value['version'] ) ? (string) $value['version'] : '' ),
-			'download_url' => esc_url_raw( isset( $value['download_url'] ) ? (string) $value['download_url'] : '' ),
+			'download_url' => $url,
 		);
 	}
 
