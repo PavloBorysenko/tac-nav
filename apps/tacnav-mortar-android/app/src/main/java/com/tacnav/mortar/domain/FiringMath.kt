@@ -206,6 +206,23 @@ object Geodesy {
         return degrees
     }
 
+    /**
+     * Magnetic heading of the phone top / tube axis from an Android rotation matrix.
+     *
+     * World frame is east / north / up. Device Y is the top edge.
+     */
+    fun magneticHeadingFromRotation(rotation: FloatArray): Double {
+        if (rotation.size < 9) {
+            return Double.NaN
+        }
+        val east = rotation[1].toDouble()
+        val north = rotation[4].toDouble()
+        if (!east.isFinite() || !north.isFinite() || (east == 0.0 && north == 0.0)) {
+            return Double.NaN
+        }
+        return normalizeBearing(Math.toDegrees(atan2(east, north)))
+    }
+
     private fun normalizeLongitude(value: Double): Double {
         var longitude = value
         while (longitude > 180) longitude -= 360

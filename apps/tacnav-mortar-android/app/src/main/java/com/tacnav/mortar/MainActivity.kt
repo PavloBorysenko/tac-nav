@@ -37,6 +37,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -236,6 +238,11 @@ fun MortarApp(
     if (state == null) {
         ActivationScreen(onActivate)
         return
+    }
+    val view = LocalView.current
+    DisposableEffect(state.activeSession) {
+        view.keepScreenOn = state.activeSession
+        onDispose { view.keepScreenOn = false }
     }
     if (state.activeSession && screen == Screen.INITIATION) {
         screen = Screen.SESSION

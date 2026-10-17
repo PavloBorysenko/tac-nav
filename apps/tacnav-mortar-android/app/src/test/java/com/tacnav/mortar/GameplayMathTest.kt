@@ -123,6 +123,28 @@ class GameplayMathTest {
     }
 
     @Test
+    fun `tube heading is the horizontal projection of device Y`() {
+        val north = floatArrayOf(
+            1f, 0f, 0f,
+            0f, 1f, 0f,
+            0f, 0f, 1f,
+        )
+        val east = floatArrayOf(
+            0f, 1f, 0f,
+            -1f, 0f, 0f,
+            0f, 0f, 1f,
+        )
+        val south = floatArrayOf(
+            -1f, 0f, 0f,
+            0f, -1f, 0f,
+            0f, 0f, 1f,
+        )
+        assertEquals(0.0, Geodesy.magneticHeadingFromRotation(north), 0.0001)
+        assertEquals(90.0, Geodesy.magneticHeadingFromRotation(east), 0.0001)
+        assertEquals(180.0, Geodesy.magneticHeadingFromRotation(south), 0.0001)
+    }
+
+    @Test
     fun `acoustic impulse fires once then debounce`() {
         val trigger = AcousticTrigger(-20.0, 80, 400)
         assertFalse(trigger.sample(-10.0, 0))

@@ -79,7 +79,12 @@ The PIN-authorized impact-icon setting SHALL fetch the complete site icon catalo
 
 ### Requirement: Active game mode keeps required work foreground
 
-The player SHALL explicitly start and stop an active game session from a separate initiation screen whose primary control is “Prepare for battle”. The session screen SHALL show GPS accuracy at the top left and range at the top right as numbers only, a large aiming readout, the fire control, a stand-down control that returns to initiation and stops the session, unprotected gameplay-settings access, and a message list that records each accepted shot and plays a shot sound. While active, Tac Nav Mortar SHALL run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working when the screen turns off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
+The player SHALL explicitly start and stop an active game session from a separate initiation screen whose primary control is “Prepare for battle”. The session screen SHALL show GPS accuracy at the top left and range at the top right as numbers only, a large aiming readout, the fire control, a stand-down control that returns to initiation and stops the session, unprotected gameplay-settings access, and a message list that records each accepted shot and plays a shot sound. While the session is active and the activity is visible, the display SHALL stay awake without player touch. While active, Tac Nav Mortar SHALL also run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working if the player still turns the screen off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
+
+#### Scenario: Battle mode keeps the display awake
+
+- **WHEN** the player starts an active session and leaves the application visible
+- **THEN** the display remains on until the player stands down
 
 #### Scenario: Screen turns off during flight
 
@@ -112,7 +117,7 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal: a phone lying flat reads near 0°, and lifting the top edge SHALL increase the displayed angle toward 90°. Direction calculations SHALL use true north after geomagnetic correction and a saved installation offset. A player SHALL be able to aim the tube at a known map point and set the direction offset. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal: a phone lying flat reads near 0°, and lifting the top edge SHALL increase the displayed angle toward 90°. Direction SHALL be the horizontal projection of that tube axis, converted to true north after geomagnetic correction and a saved installation offset. It MUST NOT use the flat-phone yaw from `getOrientation`, which changes sign when the tube is steep. A player SHALL be able to aim the tube at a known map point and set the direction offset. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 

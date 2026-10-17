@@ -126,7 +126,7 @@ Tac Nav Mortar is a Kotlin application with a modern native UI and minimum SDK 2
 
 Room persists every accepted shot and its per-object roll before network side effects. States distinguish at least `IN_FLIGHT`, `DUE`, `SEARCHED`, `IMPACT_CREATED`, `MESSAGES_SENT`, and terminal failure/completion. Every remote write uses stable ids/idempotency keys so process death or response loss resumes rather than rerolls.
 
-The foreground service is started by visible user action and declares the required location and microphone service types. It displays a persistent active-session notification. Android permission denial degrades the corresponding feature: no location blocks firing, no microphone disables acoustic trigger, no camera requires manual activation, and no notification permission prevents a valid active configuration until resolved.
+The foreground service is started by visible user action and declares the required location and microphone service types. It displays a persistent active-session notification. While that session is active and the activity is visible, the activity keeps the display awake. Android permission denial degrades the corresponding feature: no location blocks firing, no microphone disables acoustic trigger, no camera requires manual activation, and no notification permission prevents a valid active configuration until resolved.
 
 Protected local settings store two non-empty allowed-mode sets: `button`/`acoustic` for firing and `free`/`precise_coordinates`/`approximate_coordinates` for aiming. The active choice is ordinary player state rather than protected configuration. The UI omits a selector for a one-item set and exposes an unprotected selector only when multiple choices are allowed.
 

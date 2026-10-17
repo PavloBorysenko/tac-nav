@@ -52,7 +52,7 @@ class PhonePose(
         if (event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
         SensorManager.getRotationMatrixFromVector(rotation, event.values)
         SensorManager.getOrientation(rotation, orientation)
-        val magnetic = Geodesy.normalizeBearing(Math.toDegrees(orientation[0].toDouble()))
+        val magnetic = Geodesy.magneticHeadingFromRotation(rotation)
         val pitch = Math.toDegrees(orientation[1].toDouble())
         // Tube elevation from horizontal: flat phone is 0°, lifting the top raises the angle.
         val elevation = (-pitch).coerceIn(0.0, 90.0)
@@ -74,14 +74,18 @@ class PhonePose(
         } else {
             0.0
         }
-        val trueHeading = Geodesy.normalizeBearing(magnetic + declination)
+        val trueHeading = if (magnetic.isFinite()) {
+            Geodesy.normalizeBearing(magnetic + declination)
+        } else {
+            null
+        }
         pose = LivePose(
-            magneticHeading = magnetic,
+            magneticHeading = magnetic.takeIf { it.isFinite() },
             trueHeading = trueHeading,
             elevation = elevation,
-            calibratedHeading = Geodesy.normalizeBearing(
-                trueHeading + (calibration.directionOffsetDegrees ?: 0.0),
-            ),
+            calibratedHeading = trueHeading?.let {
+                Geodesy.normalizeBearing(it + (calibration.directionOffsetDegrees ?: 0.0))
+            },
             calibratedElevation = elevation + (calibration.elevationOffsetDegrees ?: 0.0),
             quality = quality,
         )
