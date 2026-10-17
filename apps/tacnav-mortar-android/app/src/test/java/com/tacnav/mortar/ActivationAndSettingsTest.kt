@@ -42,6 +42,8 @@ class ActivationAndSettingsTest {
         assertEquals(60.0, settings.elevationReferenceDegrees, 0.0)
         assertEquals(15.0, settings.maxLocationAccuracyMetres, 0.0)
         assertEquals(15L, settings.maxLocationAgeSeconds)
+        assertEquals(false, settings.markOwnPositionOnShot)
+        assertEquals(30L, GameplaySettings.OWN_POSITION_TTL_SECONDS)
     }
 
     @Test

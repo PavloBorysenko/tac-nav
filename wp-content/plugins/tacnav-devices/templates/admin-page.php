@@ -118,6 +118,15 @@ $tacnav_edit_url     = admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNa
 			<tr><th><label for="tacnav-app-pedge"><?php esc_html_e( 'Edge probability', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-pedge" name="edge_probability" type="number" min="0" max="1" step="0.01" value="<?php echo esc_attr( (string) $tacnav_reference['edge_probability'] ); ?>"></td></tr>
 			<tr><th><label for="tacnav-app-flight"><?php esc_html_e( 'Flight duration (seconds)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-flight" name="flight_duration_seconds" type="number" min="1" step="1" value="<?php echo esc_attr( (string) $tacnav_reference['flight_duration_seconds'] ); ?>"></td></tr>
 			<tr><th><label for="tacnav-app-ttl"><?php esc_html_e( 'Impact TTL (seconds)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-ttl" name="impact_ttl_seconds" type="number" min="0" step="1" value="<?php echo esc_attr( (string) $tacnav_reference['impact_ttl_seconds'] ); ?>"></td></tr>
+			<tr>
+				<th><label for="tacnav-app-mark-own"><?php esc_html_e( 'Mark mortar position on shot', 'tacnav-devices' ); ?></label></th>
+				<td>
+					<label>
+						<input id="tacnav-app-mark-own" name="mark_own_position_on_shot" type="checkbox" value="1" <?php checked( ! empty( $tacnav_reference['mark_own_position_on_shot'] ) ); ?>>
+						<?php esc_html_e( 'Publish this mortar’s location for 30 seconds after each shot. Off by default.', 'tacnav-devices' ); ?>
+					</label>
+				</td>
+			</tr>
 			<tr><th><label for="tacnav-app-gps-acc"><?php esc_html_e( 'Max location accuracy (m)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-gps-acc" name="max_location_accuracy_m" type="number" min="0.1" step="0.1" value="<?php echo esc_attr( (string) $tacnav_reference['max_location_accuracy_m'] ); ?>"></td></tr>
 			<tr><th><label for="tacnav-app-gps-age"><?php esc_html_e( 'Max location age (seconds)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-gps-age" name="max_location_age_seconds" type="number" min="1" step="1" value="<?php echo esc_attr( (string) $tacnav_reference['max_location_age_seconds'] ); ?>"></td></tr>
 			<tr><th><label for="tacnav-app-acoustic-db"><?php esc_html_e( 'Acoustic threshold (dBFS)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-acoustic-db" name="acoustic_threshold_dbfs" type="number" step="0.1" value="<?php echo esc_attr( (string) $tacnav_reference['acoustic_threshold_dbfs'] ); ?>"></td></tr>

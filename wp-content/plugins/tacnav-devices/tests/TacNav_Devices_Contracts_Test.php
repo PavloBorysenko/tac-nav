@@ -150,6 +150,17 @@ class TacNav_Devices_Contracts_Test extends TestCase {
 		$this->assertSame( 8.0, $result['damage_radius_m'] );
 		$this->assertSame( 15.0, $result['max_location_accuracy_m'] );
 		$this->assertSame( 15, $result['max_location_age_seconds'] );
+		$this->assertFalse( $result['mark_own_position_on_shot'] );
+
+		$enabled = Validation::reference_settings(
+			array(
+				'firing_modes'              => array( 'button' ),
+				'aiming_modes'              => array( 'free' ),
+				'mark_own_position_on_shot' => '1',
+			)
+		);
+		$this->assertIsArray( $enabled );
+		$this->assertTrue( $enabled['mark_own_position_on_shot'] );
 	}
 
 	/**

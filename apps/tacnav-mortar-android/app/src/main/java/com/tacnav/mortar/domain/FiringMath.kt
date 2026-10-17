@@ -207,16 +207,31 @@ object Geodesy {
     }
 
     /**
-     * Magnetic heading of the phone top / tube axis from an Android rotation matrix.
+     * Magnetic heading of the aim axis from an Android rotation matrix.
      *
-     * World frame is east / north / up. Device Y is the top edge.
+     * World frame is east / north / up. When the player looks at the screen and
+     * points the phone at a target, the aim is through the glass (−Z). When the
+     * phone is flat, −Z has no horizontal component and the top edge (Y) is used.
      */
     fun magneticHeadingFromRotation(rotation: FloatArray): Double {
         if (rotation.size < 9) {
             return Double.NaN
         }
-        val east = rotation[1].toDouble()
-        val north = rotation[4].toDouble()
+        val topEast = rotation[1].toDouble()
+        val topNorth = rotation[4].toDouble()
+        val throughEast = -rotation[2].toDouble()
+        val throughNorth = -rotation[5].toDouble()
+        val throughH = hypot(throughEast, throughNorth)
+        val topH = hypot(topEast, topNorth)
+        val east: Double
+        val north: Double
+        if (throughH >= topH && throughH > 1e-3) {
+            east = throughEast
+            north = throughNorth
+        } else {
+            east = topEast
+            north = topNorth
+        }
         if (!east.isFinite() || !north.isFinite() || (east == 0.0 && north == 0.0)) {
             return Double.NaN
         }
@@ -233,7 +248,6 @@ object Geodesy {
 
 object CalibrationMath {
     const val MIN_KNOWN_POINT_METRES = 25.0
-    const val ELEVATION_MOUNT_SLACK_DEGREES = 35.0
 
     fun elevationFromPitch(pitchDegrees: Double): Double = -pitchDegrees
 
@@ -242,9 +256,6 @@ object CalibrationMath {
 
     fun applyElevationOffset(measuredDegrees: Double, offsetDegrees: Double?): Double =
         measuredDegrees + (offsetDegrees ?: 0.0)
-
-    fun elevationLooksUnmounted(measuredDegrees: Double, referenceDegrees: Double): Boolean =
-        kotlin.math.abs(measuredDegrees - referenceDegrees) > ELEVATION_MOUNT_SLACK_DEGREES
 
     fun signedBearingOffset(knownBearingDegrees: Double, measuredTrueHeadingDegrees: Double): Double {
         var delta = (knownBearingDegrees - measuredTrueHeadingDegrees) % 360.0

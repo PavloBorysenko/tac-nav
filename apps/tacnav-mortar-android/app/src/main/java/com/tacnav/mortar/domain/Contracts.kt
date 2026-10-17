@@ -42,6 +42,7 @@ data class GameplaySettings(
     val acousticThresholdDbfs: Double = -20.0,
     val acousticImpulseMs: Long = 80,
     val acousticDebounceMs: Long = 400,
+    val markOwnPositionOnShot: Boolean = false,
 ) {
     fun validated(): GameplaySettings {
         require(firingModes.isNotEmpty()) { "Select at least one firing mode." }
@@ -64,6 +65,10 @@ data class GameplaySettings(
         require(maxLocationAgeSeconds > 0) { "GPS age limit must be positive." }
         require(mortarName.isNotBlank()) { "Mortar name is required." }
         return this
+    }
+
+    companion object {
+        const val OWN_POSITION_TTL_SECONDS = 30L
     }
 }
 

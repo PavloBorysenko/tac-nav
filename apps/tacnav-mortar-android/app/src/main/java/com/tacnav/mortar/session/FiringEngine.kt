@@ -204,4 +204,36 @@ class FiringEngine(
             )
         }
     }
+
+    suspend fun publishOwnPosition(
+        shot: ShotRecord,
+        settings: GameplaySettings,
+        context: ActiveContext,
+    ) {
+        val request = MortarMark.ownPositionRequest(shot, settings, context) ?: return
+        geo.create(request)
+    }
+}
+
+object MortarMark {
+    fun ownPositionRequest(
+        shot: ShotRecord,
+        settings: GameplaySettings,
+        context: ActiveContext,
+    ): CreateObjectRequest? {
+        if (!settings.markOwnPositionOnShot) {
+            return null
+        }
+        return CreateObjectRequest(
+            context = context,
+            clientObjectId = "${shot.shotId}-position",
+            kind = "marker",
+            geometry = Geometry.Marker(shot.snapshot.latitude, shot.snapshot.longitude),
+            title = "${settings.mortarName} position",
+            iconId = settings.impactIconId,
+            visibleTeamIds = emptyList(),
+            ttlSeconds = GameplaySettings.OWN_POSITION_TTL_SECONDS,
+            positionAccuracyMetres = shot.snapshot.accuracyMetres,
+        )
+    }
 }

@@ -167,11 +167,18 @@ class FiringSessionService : Service() {
                 SystemClock.elapsedRealtime(),
                 System.currentTimeMillis(),
             )
-        }.onSuccess {
+        }.onSuccess { shot ->
             ShotFeedback.play(this)
             app.publishShots(engine.currentShots())
             app.publishError(null)
             if (button) pulseTorch()
+            if (state.settings.markOwnPositionOnShot) {
+                scope.launch {
+                    runCatching {
+                        engine.publishOwnPosition(shot, state.settings, state.context)
+                    }
+                }
+            }
         }.onFailure {
             app.publishError(it.message)
         }

@@ -125,6 +125,7 @@ class Validation {
 			'acoustic_threshold_dbfs'     => -20.0,
 			'acoustic_impulse_ms'         => 80,
 			'acoustic_debounce_ms'        => 400,
+			'mark_own_position_on_shot'   => false,
 		);
 	}
 
@@ -177,6 +178,7 @@ class Validation {
 			'acoustic_threshold_dbfs'     => self::float_value( $source, 'acoustic_threshold_dbfs', $defaults['acoustic_threshold_dbfs'] ),
 			'acoustic_impulse_ms'         => self::positive_int( $source, 'acoustic_impulse_ms', $defaults['acoustic_impulse_ms'] ),
 			'acoustic_debounce_ms'        => self::positive_int( $source, 'acoustic_debounce_ms', $defaults['acoustic_debounce_ms'] ),
+			'mark_own_position_on_shot'   => ! empty( $source['mark_own_position_on_shot'] ),
 		);
 		if ( $merged['min_elevation_degrees'] >= $merged['max_elevation_degrees'] ) {
 			return new \WP_Error( 'tacnav_elevation_range', __( 'Minimum elevation must be below maximum elevation.', 'tacnav-devices' ) );

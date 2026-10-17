@@ -15,6 +15,7 @@ import com.tacnav.mortar.network.GeometrySearchRequest
 import com.tacnav.mortar.network.GeometrySearchResult
 import com.tacnav.mortar.network.MailboxDelivery
 import com.tacnav.mortar.session.FiringEngine
+import com.tacnav.mortar.session.MortarMark
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -84,6 +85,24 @@ class FiringEngineTest {
         engine.resolveDue(30_000, 40_000, settings, context, online = true)
         assertTrue(geo.created)
         assertEquals(ShotPhase.COMPLETED, engine.currentShots().single().phase)
+    }
+
+    @Test
+    fun `own position mark is off by default and lasts 30 seconds when enabled`() {
+        val engine = FiringEngine(FakeGeo(), FakeMailbox(), { 0.1 }, { "shot-pos" })
+        val shot = engine.accept(snapshot(), settings, 0, 1_000)
+        assertEquals(null, MortarMark.ownPositionRequest(shot, settings, context))
+        val request = MortarMark.ownPositionRequest(
+            shot,
+            settings.copy(markOwnPositionOnShot = true),
+            context,
+        )
+        assertTrue(request != null)
+        val marker = request!!.geometry as Geometry.Marker
+        assertEquals(50.0, marker.latitude, 0.0)
+        assertEquals(30.0, marker.longitude, 0.0)
+        assertEquals(30L, request.ttlSeconds)
+        assertEquals("shot-pos-position", request.clientObjectId)
     }
 
     @Test

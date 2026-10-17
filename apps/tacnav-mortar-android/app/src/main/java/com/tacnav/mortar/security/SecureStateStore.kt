@@ -251,6 +251,7 @@ class SecureStateStore(
         .put("acoustic_threshold", value.acousticThresholdDbfs)
         .put("acoustic_impulse", value.acousticImpulseMs)
         .put("acoustic_debounce", value.acousticDebounceMs)
+        .put("mark_own_position", value.markOwnPositionOnShot)
 
     private fun decode(root: JSONObject): LocalState {
         val activation = decodeActivation(root.getJSONObject("activation"))
@@ -350,6 +351,7 @@ class SecureStateStore(
         acousticThresholdDbfs = value.optDouble("acoustic_threshold", -20.0),
         acousticImpulseMs = value.optLong("acoustic_impulse", 80),
         acousticDebounceMs = value.optLong("acoustic_debounce", 400),
+        markOwnPositionOnShot = value.optBoolean("mark_own_position", false),
     ).validated()
 
     private fun encodeShots(shots: List<ShotRecord>): JSONObject = JSONObject().put(

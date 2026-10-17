@@ -202,6 +202,7 @@ class HttpActivationApi(
                 acousticThresholdDbfs = reference.optDouble("acoustic_threshold_dbfs", -20.0),
                 acousticImpulseMs = reference.optLong("acoustic_impulse_ms", 80),
                 acousticDebounceMs = reference.optLong("acoustic_debounce_ms", 400),
+                markOwnPositionOnShot = reference.optBoolean("mark_own_position_on_shot", false),
             ),
             services = ServiceConfiguration(
                 iconCatalogPath = services.optString(

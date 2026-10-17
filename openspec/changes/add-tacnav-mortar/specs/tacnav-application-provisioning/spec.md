@@ -8,7 +8,7 @@ Lets staff define, distribute, activate, revoke, and reset trusted Tac Nav devic
 
 ### Requirement: Staff can define an application instance
 
-An Organizer or Administrator SHALL be able to create a named application instance with an application type, reference settings, allowed maps, allowed teams, a default map, a default team, and an optional impact icon. Staff SHALL choose maps, teams, and the impact icon from the published catalog titles, not by typing identifiers. Each allowed team MUST exist and the selected current team MUST be listed on the selected current map when the device uses a map API. A non-staff user MUST NOT create, inspect, activate, or revoke an application instance. Successful activation SHALL return those maps and teams with their titles so the phone can display names.
+An Organizer or Administrator SHALL be able to create a named application instance with an application type, reference settings, allowed maps, allowed teams, a default map, a default team, an optional impact icon, and an optional off-by-default flag that publishes the mortar position for 30 seconds after each shot. Staff SHALL choose maps, teams, and the impact icon from the published catalog titles, not by typing identifiers. Each allowed team MUST exist and the selected current team MUST be listed on the selected current map when the device uses a map API. A non-staff user MUST NOT create, inspect, activate, or revoke an application instance. Successful activation SHALL return those maps and teams with their titles so the phone can display names.
 
 #### Scenario: Organizer creates a mortar reference
 

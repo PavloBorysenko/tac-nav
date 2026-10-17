@@ -145,12 +145,6 @@ class GameplayMathTest {
     }
 
     @Test
-    fun `flat phone is not accepted as the 60 degree reference`() {
-        assertTrue(CalibrationMath.elevationLooksUnmounted(0.0, 60.0))
-        assertFalse(CalibrationMath.elevationLooksUnmounted(55.0, 60.0))
-    }
-
-    @Test
     fun `elevation below the horizon is not clamped to the reference`() {
         val offset = CalibrationMath.elevationOffset(60.0, 0.0)
         assertEquals(53.0, CalibrationMath.applyElevationOffset(-7.0, offset), 0.0001)
@@ -160,7 +154,7 @@ class GameplayMathTest {
     }
 
     @Test
-    fun `tube heading is the horizontal projection of device Y`() {
+    fun `flat phone heading uses the top edge`() {
         val north = floatArrayOf(
             1f, 0f, 0f,
             0f, 1f, 0f,
@@ -179,6 +173,22 @@ class GameplayMathTest {
         assertEquals(0.0, Geodesy.magneticHeadingFromRotation(north), 0.0001)
         assertEquals(90.0, Geodesy.magneticHeadingFromRotation(east), 0.0001)
         assertEquals(180.0, Geodesy.magneticHeadingFromRotation(south), 0.0001)
+    }
+
+    @Test
+    fun `upright phone heading aims through the screen`() {
+        val northThroughScreen = floatArrayOf(
+            1f, 0f, 0f,
+            0f, 0f, -1f,
+            0f, 1f, 0f,
+        )
+        val eastThroughScreen = floatArrayOf(
+            0f, 0f, -1f,
+            -1f, 0f, 0f,
+            0f, 1f, 0f,
+        )
+        assertEquals(0.0, Geodesy.magneticHeadingFromRotation(northThroughScreen), 0.0001)
+        assertEquals(90.0, Geodesy.magneticHeadingFromRotation(eastThroughScreen), 0.0001)
     }
 
     @Test

@@ -22,7 +22,7 @@ The application SHALL be named “Tac Nav Mortar”, use package id `com.tacnav.
 
 ### Requirement: Gameplay settings live on the activated phone
 
-The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, and elevation-calibration reference angle, SHALL require a local PIN whose initial value is `4321`; performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees, the default approximate-guidance radius SHALL be 30 metres, and the default GPS limits SHALL be 15 metres of horizontal error and 15 seconds of fix age. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
+The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, elevation-calibration reference angle, and whether a shot publishes this mortar’s position, SHALL require a local PIN whose initial value is `4321`; performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees, the default approximate-guidance radius SHALL be 30 metres, the default GPS limits SHALL be 15 metres of horizontal error and 15 seconds of fix age, and marking the mortar position on shot SHALL be off. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
 
 #### Scenario: PIN protects radius
 
@@ -117,12 +117,12 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be the horizontal projection of that tube axis, converted to true north after geomagnetic correction and a saved installation offset. It MUST NOT use the flat-phone yaw from `getOrientation`, which changes sign when the tube is steep. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate or a stale landmark fix cannot save an offset that forces the current aim to north. After a successful save, the same aim SHALL read the true bearing to the known point. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. It SHALL refuse calibration when the phone is nearly flat relative to that reference. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat the direction through the screen (the back of the phone) as the firing direction when that axis has a horizontal component, and the top edge when the phone is flat. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be converted to true north after geomagnetic correction and a saved installation offset. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading at the moment the player confirms Save. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate cannot save an offset that forces the current aim to north. After a successful save, that same aim SHALL read the true bearing to the known point. Elevation calibration SHALL save the difference between the configured reference angle, defaulting to 60 degrees, and the phone’s current measured elevation, including when the phone is nearly flat. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 
-- **WHEN** a player aims the tube at a selected known point at least 25 metres away and confirms calibration
-- **THEN** the application saves the difference between the known true bearing and the measured heading, and that same aim reads the known bearing
+- **WHEN** a player aims the phone at a selected known point at least 25 metres away and confirms calibration
+- **THEN** the application saves the difference between the known true bearing and the heading at Save, and that same aim reads the known bearing
 
 #### Scenario: Nearby known point is refused
 
@@ -136,13 +136,8 @@ The mounted phone SHALL treat its top edge as the firing direction and its longi
 
 #### Scenario: Default elevation calibration uses 60 degrees
 
-- **WHEN** the reference remains at its default and the player sets the mortar to 60 degrees and activates elevation calibration
+- **WHEN** the reference remains at its default and the player activates elevation calibration
 - **THEN** the application saves the offset that makes the current physical position read as 60 degrees
-
-#### Scenario: Flat phone cannot become the reference elevation
-
-- **WHEN** the phone is nearly horizontal and the player activates elevation calibration
-- **THEN** the application refuses to save an offset and the displayed elevation is not forced to 60 degrees
 
 #### Scenario: Lowering the tube can read below the reference
 
@@ -247,6 +242,20 @@ When a shot becomes due and the server is reachable, the application SHALL searc
 
 - **WHEN** search fails after a shot becomes due
 - **THEN** the application still creates the impact marker and may retry hit delivery later
+
+### Requirement: A shot can mark the mortar position
+
+A PIN-protected gameplay setting SHALL control whether an accepted shot immediately publishes a public point marker at the captured mortar origin. That setting SHALL default to off. When it is on, the marker SHALL use a 30-second lifetime and a title derived from the mortar name. A failure to publish that marker MUST NOT roll back the shot.
+
+#### Scenario: Own-position mark is off by default
+
+- **WHEN** the player has not changed the protected setting and fires
+- **THEN** the application does not create a marker at the mortar origin
+
+#### Scenario: Enabled own-position mark lasts 30 seconds
+
+- **WHEN** the protected setting is on and a shot is accepted
+- **THEN** the application creates a public marker at the shot origin with a 30-second lifetime
 
 ### Requirement: Offline due shots resolve after connectivity returns
 

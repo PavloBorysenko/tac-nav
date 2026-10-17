@@ -284,21 +284,18 @@ fun MortarApp(
             onCalibrateElevation = {
                 val measured = pose.elevation
                 val reference = state.settings.elevationReferenceDegrees
-                calibrationNote = when {
-                    measured == null -> "Elevation is unavailable."
-                    CalibrationMath.elevationLooksUnmounted(measured, reference) ->
-                        "Set the tube to ${reference.toInt()}° with the plumb, then tap ∠. A flat phone cannot become ${reference.toInt()}°."
-                    else -> {
-                        repository.saveCalibration(
-                            state.calibration.copy(
-                                elevationOffsetDegrees = CalibrationMath.elevationOffset(
-                                    reference,
-                                    measured,
-                                ),
+                calibrationNote = if (measured == null) {
+                    "Elevation is unavailable."
+                } else {
+                    repository.saveCalibration(
+                        state.calibration.copy(
+                            elevationOffsetDegrees = CalibrationMath.elevationOffset(
+                                reference,
+                                measured,
                             ),
-                        )
-                        "Elevation now reads ${reference.toInt()}° at this tube position."
-                    }
+                        ),
+                    )
+                    "Elevation now reads ${reference.toInt()}° at this tube position."
                 }
             },
             onOpenCompass = { screen = Screen.COMPASS },
@@ -837,6 +834,7 @@ fun ProtectedSettingsScreen(
     var acousticThreshold by rememberSaveable { mutableStateOf(state.settings.acousticThresholdDbfs.toString()) }
     var acousticImpulse by rememberSaveable { mutableStateOf(state.settings.acousticImpulseMs.toString()) }
     var acousticDebounce by rememberSaveable { mutableStateOf(state.settings.acousticDebounceMs.toString()) }
+    var markOwnPosition by remember { mutableStateOf(state.settings.markOwnPositionOnShot) }
     var mapId by rememberSaveable { mutableStateOf(state.context.mapId) }
     var teamId by rememberSaveable { mutableStateOf(state.context.teamId) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
@@ -894,6 +892,10 @@ fun ProtectedSettingsScreen(
             OutlinedTextField(acousticThreshold, { acousticThreshold = it }, label = { Text("Acoustic threshold (dBFS)") }, colors = fieldColors())
             OutlinedTextField(acousticImpulse, { acousticImpulse = it }, label = { Text("Acoustic impulse (ms)") }, colors = fieldColors())
             OutlinedTextField(acousticDebounce, { acousticDebounce = it }, label = { Text("Acoustic debounce (ms)") }, colors = fieldColors())
+            CheckboxRow(
+                "Mark this mortar on the map for 30 seconds after each shot",
+                markOwnPosition,
+            ) { markOwnPosition = it }
             Text("Map", style = MaterialTheme.typography.titleMedium, color = Ink)
             state.activation.maps.forEach { map ->
                 RadioRow(map.name, map.id == mapId) {
@@ -939,6 +941,7 @@ fun ProtectedSettingsScreen(
                             acousticThresholdDbfs = acousticThreshold.toDouble(),
                             acousticImpulseMs = acousticImpulse.toLong(),
                             acousticDebounceMs = acousticDebounce.toLong(),
+                            markOwnPositionOnShot = markOwnPosition,
                         ).validated()
                     }.getOrElse {
                         message = it.message
@@ -1001,11 +1004,11 @@ fun CompassCalibrationScreen(
         ) {
             Text("Compass calibration", style = MaterialTheme.typography.titleLarge, color = Ink)
             Text(
-                "Stand at the mortar. Aim the tube at a distant map point and enter that point’s coordinates, not this phone’s.",
+                "Keep the phone aimed at the known point and tap Save. Heading is taken at that moment.",
                 color = Ink,
             )
             Text(
-                "True heading ${heading?.toInt() ?: "n/a"}°, GPS ${fix?.accuracy?.toInt() ?: "n/a"} m, quality ${pose.quality}",
+                "Heading ${heading?.toInt() ?: "n/a"}°, GPS ${fix?.accuracy?.toInt() ?: "n/a"} m, quality ${pose.quality}",
                 color = Ink,
             )
             OutlinedTextField(
