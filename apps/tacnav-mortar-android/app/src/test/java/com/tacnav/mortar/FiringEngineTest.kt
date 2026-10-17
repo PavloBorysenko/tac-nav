@@ -102,7 +102,22 @@ class FiringEngineTest {
         assertEquals(50.0, marker.latitude, 0.0)
         assertEquals(30.0, marker.longitude, 0.0)
         assertEquals(30L, request.ttlSeconds)
-        assertEquals("shot-pos-position", request.clientObjectId)
+        assertEquals(null, request.iconId)
+        assertEquals(MortarMark.CLIENT_OBJECT_ID, request.clientObjectId)
+    }
+
+    @Test
+    fun `own position mark updates the same object on later shots`() = runBlocking {
+        val geo = FakeGeo()
+        val engine = FiringEngine(geo, FakeMailbox(), { 0.1 }, { "shot-pos-2" })
+        val marked = settings.copy(markOwnPositionOnShot = true)
+        val first = engine.accept(snapshot(), marked, 0, 1_000)
+        engine.publishOwnPosition(first, marked, context)
+        val second = engine.accept(snapshot(), marked, 1_000, 2_000)
+        engine.publishOwnPosition(second, marked, context)
+        assertEquals(1, geo.creates)
+        assertEquals(1, geo.updates)
+        assertEquals(1L, geo.lastUpdatedId)
     }
 
     @Test
@@ -148,6 +163,9 @@ class FiringEngineTest {
         var failCreate = false
         var failSearch = false
         var searches = 0
+        var creates = 0
+        var updates = 0
+        var lastUpdatedId: Long? = null
 
         override suspend fun search(request: GeometrySearchRequest): List<GeometrySearchResult> {
             searches += 1
@@ -158,7 +176,14 @@ class FiringEngineTest {
         override suspend fun create(request: CreateObjectRequest): CreatedObject {
             if (failCreate) error("create failed")
             created = true
+            creates += 1
             return CreatedObject(1, request.kind, request.geometry)
+        }
+
+        override suspend fun update(objectId: Long, request: CreateObjectRequest): CreatedObject {
+            updates += 1
+            lastUpdatedId = objectId
+            return CreatedObject(objectId, request.kind, request.geometry)
         }
     }
 

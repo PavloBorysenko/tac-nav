@@ -67,6 +67,7 @@ data class MailboxDelivery(
 interface GeoObjectApi {
     suspend fun search(request: GeometrySearchRequest): List<GeometrySearchResult>
     suspend fun create(request: CreateObjectRequest): CreatedObject
+    suspend fun update(objectId: Long, request: CreateObjectRequest): CreatedObject
 }
 
 interface DeviceMailboxApi {

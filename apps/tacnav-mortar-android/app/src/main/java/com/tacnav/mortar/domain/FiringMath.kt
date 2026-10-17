@@ -209,9 +209,9 @@ object Geodesy {
     /**
      * Magnetic heading of the aim axis from an Android rotation matrix.
      *
-     * World frame is east / north / up. When the player looks at the screen and
-     * points the phone at a target, the aim is through the glass (−Z). When the
-     * phone is flat, −Z has no horizontal component and the top edge (Y) is used.
+     * World frame is east / north / up. Aim is through the screen (−Z) whenever
+     * that axis has a horizontal component, so Save and a mounted shot use the
+     * same axis. The top edge (Y) is used only when the phone is lying flat.
      */
     fun magneticHeadingFromRotation(rotation: FloatArray): Double {
         if (rotation.size < 9) {
@@ -222,10 +222,9 @@ object Geodesy {
         val throughEast = -rotation[2].toDouble()
         val throughNorth = -rotation[5].toDouble()
         val throughH = hypot(throughEast, throughNorth)
-        val topH = hypot(topEast, topNorth)
         val east: Double
         val north: Double
-        if (throughH >= topH && throughH > 1e-3) {
+        if (throughH > 0.05) {
             east = throughEast
             north = throughNorth
         } else {
@@ -262,7 +261,7 @@ object CalibrationMath {
         if (delta > 180.0) {
             delta -= 360.0
         }
-        if (delta <= -180.0) {
+        if (delta < -180.0) {
             delta += 360.0
         }
         return delta

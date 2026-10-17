@@ -59,7 +59,7 @@ class HttpTacNavApi(
             .put("visible_team_ids", JSONArray())
             .put("ttl_seconds", request.ttlSeconds)
             .put("position_accuracy_m", request.positionAccuracyMetres)
-            .put("icon_id", request.iconId)
+            .put("icon_id", request.iconId ?: 0)
             .put("client_object_id", request.clientObjectId)
             .toString()
             .toRequestBody(JSON)
@@ -71,7 +71,33 @@ class HttpTacNavApi(
         if (response.code !in 200..299) {
             throw IOException("Impact marker could not be created (${response.code}).")
         }
-        val item = JSONObject(response.body)
+        return createdObject(response.body, request)
+    }
+
+    override suspend fun update(objectId: Long, request: CreateObjectRequest): CreatedObject {
+        val body = JSONObject()
+            .put("kind", request.kind)
+            .put("geometry", encodeGeometry(request.geometry))
+            .put("title", request.title)
+            .put("visible_team_ids", JSONArray())
+            .put("ttl_seconds", request.ttlSeconds)
+            .put("position_accuracy_m", request.positionAccuracyMetres)
+            .put("icon_id", request.iconId ?: 0)
+            .toString()
+            .toRequestBody(JSON)
+        val response = client.execute(
+            authorized("/wp-json/tacnav/v1/maps/${request.context.mapId}/objects/$objectId")
+                .put(body)
+                .build(),
+        )
+        if (response.code !in 200..299) {
+            throw IOException("Object could not be updated (${response.code}).")
+        }
+        return createdObject(response.body, request)
+    }
+
+    private fun createdObject(raw: String, request: CreateObjectRequest): CreatedObject {
+        val item = JSONObject(raw)
         return CreatedObject(
             objectId = item.getLong("id"),
             kind = item.optString("kind", request.kind),

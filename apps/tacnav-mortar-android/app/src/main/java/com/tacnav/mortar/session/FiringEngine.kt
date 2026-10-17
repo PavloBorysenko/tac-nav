@@ -28,6 +28,7 @@ class FiringEngine(
     private val uuid: () -> String = { UUID.randomUUID().toString() },
 ) {
     private val shots = linkedMapOf<String, ShotRecord>()
+    private var ownPositionObjectId: Long? = null
 
     fun currentShots(): List<ShotRecord> = shots.values.toList()
 
@@ -211,11 +212,21 @@ class FiringEngine(
         context: ActiveContext,
     ) {
         val request = MortarMark.ownPositionRequest(shot, settings, context) ?: return
-        geo.create(request)
+        val existing = ownPositionObjectId
+        if (existing != null) {
+            val updated = runCatching { geo.update(existing, request) }.getOrNull()
+            if (updated != null) {
+                ownPositionObjectId = updated.objectId
+                return
+            }
+        }
+        ownPositionObjectId = geo.create(request).objectId
     }
 }
 
 object MortarMark {
+    const val CLIENT_OBJECT_ID = "mortar-position"
+
     fun ownPositionRequest(
         shot: ShotRecord,
         settings: GameplaySettings,
@@ -226,11 +237,11 @@ object MortarMark {
         }
         return CreateObjectRequest(
             context = context,
-            clientObjectId = "${shot.shotId}-position",
+            clientObjectId = CLIENT_OBJECT_ID,
             kind = "marker",
             geometry = Geometry.Marker(shot.snapshot.latitude, shot.snapshot.longitude),
             title = "${settings.mortarName} position",
-            iconId = settings.impactIconId,
+            iconId = null,
             visibleTeamIds = emptyList(),
             ttlSeconds = GameplaySettings.OWN_POSITION_TTL_SECONDS,
             positionAccuracyMetres = shot.snapshot.accuracyMetres,

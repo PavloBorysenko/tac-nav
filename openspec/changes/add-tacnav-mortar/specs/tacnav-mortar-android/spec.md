@@ -117,7 +117,7 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat the direction through the screen (the back of the phone) as the firing direction when that axis has a horizontal component, and the top edge when the phone is flat. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be converted to true north after geomagnetic correction and a saved installation offset. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading at the moment the player confirms Save. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate cannot save an offset that forces the current aim to north. After a successful save, that same aim SHALL read the true bearing to the known point. Elevation calibration SHALL save the difference between the configured reference angle, defaulting to 60 degrees, and the phone’s current measured elevation, including when the phone is nearly flat. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat the direction through the screen (the back of the phone) as the firing direction whenever that axis has a horizontal component, including at Save and at trigger, and the top edge only when the phone is lying flat. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be converted to true north after geomagnetic correction and a saved installation offset. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading at the moment the player confirms Save. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate cannot save an offset that forces the current aim to north. After a successful save, that same aim SHALL read the true bearing to the known point. Elevation calibration SHALL save the difference between the configured reference angle, defaulting to 60 degrees, and the phone’s current measured elevation, including when the phone is nearly flat. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 
@@ -245,7 +245,7 @@ When a shot becomes due and the server is reachable, the application SHALL searc
 
 ### Requirement: A shot can mark the mortar position
 
-A PIN-protected gameplay setting SHALL control whether an accepted shot immediately publishes a public point marker at the captured mortar origin. That setting SHALL default to off. When it is on, the marker SHALL use a 30-second lifetime and a title derived from the mortar name. A failure to publish that marker MUST NOT roll back the shot.
+A PIN-protected gameplay setting SHALL control whether an accepted shot immediately publishes a public point at the captured mortar origin. That setting SHALL default to off. When it is on, the point SHALL use the default map marker, not the impact icon, a 30-second lifetime, and a title derived from the mortar name. A later shot SHALL update that same object instead of creating another. A failure to publish that marker MUST NOT roll back the shot.
 
 #### Scenario: Own-position mark is off by default
 
@@ -255,7 +255,12 @@ A PIN-protected gameplay setting SHALL control whether an accepted shot immediat
 #### Scenario: Enabled own-position mark lasts 30 seconds
 
 - **WHEN** the protected setting is on and a shot is accepted
-- **THEN** the application creates a public marker at the shot origin with a 30-second lifetime
+- **THEN** the application creates a public default marker at the shot origin with a 30-second lifetime
+
+#### Scenario: Later shots move the same mortar marker
+
+- **WHEN** the protected setting is on and a second shot is accepted
+- **THEN** the application updates the existing mortar-position object instead of adding another
 
 ### Requirement: Offline due shots resolve after connectivity returns
 

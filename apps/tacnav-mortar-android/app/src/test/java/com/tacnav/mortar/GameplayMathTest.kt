@@ -125,15 +125,61 @@ class GameplayMathTest {
 
     @Test
     fun `known-point offset makes the same aim read the known bearing`() {
-        val measured = 128.0
-        val known = 42.0
-        val offset = CalibrationMath.signedBearingOffset(known, measured)
-        assertEquals(known, CalibrationMath.applyHeadingOffset(measured, offset), 0.0001)
-        assertEquals(
-            0.0,
-            CalibrationMath.applyHeadingOffset(90.0, CalibrationMath.signedBearingOffset(0.0, 90.0)),
-            0.0001,
+        val measuredHeadings = listOf(0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 359.0)
+        val knownHeadings = listOf(0.0, 37.0, 90.0, 180.0, 270.0, 359.0)
+        for (measured in measuredHeadings) {
+            for (known in knownHeadings) {
+                val offset = CalibrationMath.signedBearingOffset(known, measured)
+                val aimed = CalibrationMath.applyHeadingOffset(measured, offset)
+                assertEquals("measured=$measured known=$known", known, aimed, 0.0001)
+            }
+        }
+    }
+
+    @Test
+    fun `destination bearing matches the heading used to compute it`() {
+        val originLat = 50.0
+        val originLng = 30.0
+        for (heading in listOf(0.0, 90.0, 180.0, 270.0, 45.0, 359.0)) {
+            val point = Geodesy.destination(originLat, originLng, heading, 120.0)
+            assertBearingEquals(
+                heading,
+                Geodesy.bearingDegrees(originLat, originLng, point.latitude, point.longitude),
+                0.01,
+            )
+        }
+    }
+
+    @Test
+    fun `calibrated heading lands the impact on the known-point bearing`() {
+        val originLat = 50.0
+        val originLng = 30.0
+        val known = Geodesy.destination(originLat, originLng, 42.0, 180.0)
+        val knownBearing = Geodesy.bearingDegrees(
+            originLat,
+            originLng,
+            known.latitude,
+            known.longitude,
         )
+        for (measured in listOf(0.0, 37.0, 90.0, 128.0, 180.0, 270.0, 359.0)) {
+            val offset = CalibrationMath.signedBearingOffset(knownBearing, measured)
+            val heading = CalibrationMath.applyHeadingOffset(measured, offset)
+            val impact = Geodesy.destination(originLat, originLng, heading, 80.0)
+            assertBearingEquals(
+                knownBearing,
+                Geodesy.bearingDegrees(originLat, originLng, impact.latitude, impact.longitude),
+                0.01,
+            )
+        }
+    }
+
+    @Test
+    fun `bearing offset wraps across north`() {
+        assertEquals(1.0, CalibrationMath.signedBearingOffset(0.0, 359.0), 0.0001)
+        assertEquals(-1.0, CalibrationMath.signedBearingOffset(359.0, 0.0), 0.0001)
+        assertEquals(0.0, CalibrationMath.applyHeadingOffset(359.0, 1.0), 0.0001)
+        assertEquals(359.0, CalibrationMath.applyHeadingOffset(0.0, -1.0), 0.0001)
+        assertEquals(0.0, CalibrationMath.applyHeadingOffset(180.0, -180.0), 0.0001)
     }
 
     @Test
@@ -197,6 +243,17 @@ class GameplayMathTest {
         assertFalse(trigger.sample(-10.0, 0))
         assertTrue(trigger.sample(-10.0, 80))
         assertFalse(trigger.sample(-10.0, 160))
+    }
+
+    private fun assertBearingEquals(expected: Double, actual: Double, delta: Double) {
+        var diff = (actual - expected) % 360.0
+        if (diff > 180.0) {
+            diff -= 360.0
+        }
+        if (diff < -180.0) {
+            diff += 360.0
+        }
+        assertEquals(expected, expected + diff, delta)
     }
 
     private fun snapshot(
