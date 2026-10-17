@@ -92,7 +92,12 @@ import com.tacnav.mortar.ui.Ivory
 import com.tacnav.mortar.ui.Olive
 import com.tacnav.mortar.ui.TacNavChrome
 import com.tacnav.mortar.ui.TacNavTheme
+import com.tacnav.mortar.ui.checkboxColors
+import com.tacnav.mortar.ui.fieldColors
 import com.tacnav.mortar.ui.primaryButtonColors
+import com.tacnav.mortar.ui.radioColors
+import com.tacnav.mortar.ui.secondaryButtonColors
+import com.tacnav.mortar.ui.textButtonColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -366,13 +371,17 @@ fun ActivationScreen(
                         .fillMaxWidth()
                         .height(320.dp),
                 )
-                TextButton(onClick = { scanning = false }) { Text("Use manual activation") }
+                TextButton(
+                    onClick = { scanning = false },
+                    colors = textButtonColors(),
+                ) { Text("Use manual activation") }
             } else {
                 OutlinedTextField(
                     value = serverUrl,
                     onValueChange = { serverUrl = it },
                     label = { Text("Server URL") },
                     singleLine = true,
+                    colors = fieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("server-url"),
@@ -382,6 +391,7 @@ fun ActivationScreen(
                     onValueChange = { code = it },
                     label = { Text("One-time code") },
                     singleLine = true,
+                    colors = fieldColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("activation-code"),
@@ -404,6 +414,7 @@ fun ActivationScreen(
                 }
                 OutlinedButton(
                     enabled = !busy,
+                    colors = secondaryButtonColors(),
                     onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -475,15 +486,21 @@ fun InitiationScreen(
                 }
                 OutlinedButton(
                     onClick = onOpenGameplay,
+                    colors = secondaryButtonColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("gameplay-settings"),
                 ) { Text("Gameplay settings") }
-                OutlinedButton(onClick = onReactivate, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = onReactivate,
+                    colors = secondaryButtonColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text("Reactivate")
                 }
                 OutlinedButton(
                     onClick = onOpenProtected,
+                    colors = secondaryButtonColors(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("settings"),
@@ -567,6 +584,7 @@ fun SessionScreen(
                 } else {
                     OutlinedButton(
                         onClick = onArm,
+                        colors = secondaryButtonColors(),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
@@ -590,6 +608,7 @@ fun SessionScreen(
             }
             TextButton(
                 onClick = onEndSession,
+                colors = textButtonColors(),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(8.dp)
@@ -678,8 +697,18 @@ private fun CoordinateAiming(
     var longitude by rememberSaveable { mutableStateOf("") }
     val lat = latitude.toDoubleOrNull()
     val lng = longitude.toDoubleOrNull()
-    OutlinedTextField(latitude, { latitude = it }, label = { Text("Target latitude") })
-    OutlinedTextField(longitude, { longitude = it }, label = { Text("Target longitude") })
+    OutlinedTextField(
+        latitude,
+        { latitude = it },
+        label = { Text("Target latitude") },
+        colors = fieldColors(),
+    )
+    OutlinedTextField(
+        longitude,
+        { longitude = it },
+        label = { Text("Target longitude") },
+        colors = fieldColors(),
+    )
     val heading = pose.calibratedHeading
     val elevation = pose.calibratedElevation
     if (lat == null || lng == null || location == null || heading == null || elevation == null) {
@@ -754,7 +783,7 @@ fun GameplaySettingsScreen(
                 colors = primaryButtonColors(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save") }
-            TextButton(onClick = onBack) { Text("Back") }
+            TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
         }
     }
 }
@@ -813,48 +842,49 @@ fun ProtectedSettingsScreen(
                 onValueChange = { pin = it },
                 label = { Text("PIN") },
                 visualTransformation = PasswordVisualTransformation(),
+                colors = fieldColors(),
                 modifier = Modifier.testTag("settings-pin"),
             )
-            Text("Allowed firing modes", style = MaterialTheme.typography.titleMedium)
+            Text("Allowed firing modes", style = MaterialTheme.typography.titleMedium, color = Ink)
             FiringMode.entries.forEach { mode ->
                 CheckboxRow(firingLabel(mode), mode in firingModes) { checked ->
                     firingModes = firingModes.toggle(mode, checked)
                 }
             }
-            Text("Allowed aiming modes", style = MaterialTheme.typography.titleMedium)
+            Text("Allowed aiming modes", style = MaterialTheme.typography.titleMedium, color = Ink)
             AimingMode.entries.forEach { mode ->
                 CheckboxRow(aimingLabel(mode), mode in aimingModes) { checked ->
                     aimingModes = aimingModes.toggle(mode, checked)
                 }
             }
-            OutlinedTextField(radius, { radius = it }, label = { Text("Approximate radius (metres)") }, modifier = Modifier.testTag("approximate-radius"))
-            OutlinedTextField(elevation, { elevation = it }, label = { Text("Elevation reference (degrees)") }, modifier = Modifier.testTag("elevation-reference"))
-            OutlinedTextField(mortarName, { mortarName = it }, label = { Text("Mortar name") })
-            OutlinedTextField(minElevation, { minElevation = it }, label = { Text("Minimum elevation (degrees)") })
-            OutlinedTextField(maxElevation, { maxElevation = it }, label = { Text("Maximum elevation (degrees)") })
-            OutlinedTextField(maxDistance, { maxDistance = it }, label = { Text("Maximum distance (metres)") })
-            OutlinedTextField(minDistance, { minDistance = it }, label = { Text("Minimum distance (metres)") })
-            OutlinedTextField(damageRadius, { damageRadius = it }, label = { Text("Damage radius (metres)") })
-            OutlinedTextField(edgeProbability, { edgeProbability = it }, label = { Text("Edge probability") })
-            OutlinedTextField(flightSeconds, { flightSeconds = it }, label = { Text("Flight duration (seconds)") })
-            OutlinedTextField(ttlSeconds, { ttlSeconds = it }, label = { Text("Impact lifetime (seconds)") })
-            OutlinedTextField(gpsAccuracy, { gpsAccuracy = it }, label = { Text("Maximum GPS error (metres)") })
-            OutlinedTextField(gpsAge, { gpsAge = it }, label = { Text("Maximum GPS age (seconds)") })
-            OutlinedTextField(acousticThreshold, { acousticThreshold = it }, label = { Text("Acoustic threshold (dBFS)") })
-            OutlinedTextField(acousticImpulse, { acousticImpulse = it }, label = { Text("Acoustic impulse (ms)") })
-            OutlinedTextField(acousticDebounce, { acousticDebounce = it }, label = { Text("Acoustic debounce (ms)") })
-            Text("Map", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(radius, { radius = it }, label = { Text("Approximate radius (metres)") }, colors = fieldColors(), modifier = Modifier.testTag("approximate-radius"))
+            OutlinedTextField(elevation, { elevation = it }, label = { Text("Elevation reference (degrees)") }, colors = fieldColors(), modifier = Modifier.testTag("elevation-reference"))
+            OutlinedTextField(mortarName, { mortarName = it }, label = { Text("Mortar name") }, colors = fieldColors())
+            OutlinedTextField(minElevation, { minElevation = it }, label = { Text("Minimum elevation (degrees)") }, colors = fieldColors())
+            OutlinedTextField(maxElevation, { maxElevation = it }, label = { Text("Maximum elevation (degrees)") }, colors = fieldColors())
+            OutlinedTextField(maxDistance, { maxDistance = it }, label = { Text("Maximum distance (metres)") }, colors = fieldColors())
+            OutlinedTextField(minDistance, { minDistance = it }, label = { Text("Minimum distance (metres)") }, colors = fieldColors())
+            OutlinedTextField(damageRadius, { damageRadius = it }, label = { Text("Damage radius (metres)") }, colors = fieldColors())
+            OutlinedTextField(edgeProbability, { edgeProbability = it }, label = { Text("Edge probability") }, colors = fieldColors())
+            OutlinedTextField(flightSeconds, { flightSeconds = it }, label = { Text("Flight duration (seconds)") }, colors = fieldColors())
+            OutlinedTextField(ttlSeconds, { ttlSeconds = it }, label = { Text("Impact lifetime (seconds)") }, colors = fieldColors())
+            OutlinedTextField(gpsAccuracy, { gpsAccuracy = it }, label = { Text("Maximum GPS error (metres)") }, colors = fieldColors())
+            OutlinedTextField(gpsAge, { gpsAge = it }, label = { Text("Maximum GPS age (seconds)") }, colors = fieldColors())
+            OutlinedTextField(acousticThreshold, { acousticThreshold = it }, label = { Text("Acoustic threshold (dBFS)") }, colors = fieldColors())
+            OutlinedTextField(acousticImpulse, { acousticImpulse = it }, label = { Text("Acoustic impulse (ms)") }, colors = fieldColors())
+            OutlinedTextField(acousticDebounce, { acousticDebounce = it }, label = { Text("Acoustic debounce (ms)") }, colors = fieldColors())
+            Text("Map", style = MaterialTheme.typography.titleMedium, color = Ink)
             state.activation.maps.forEach { map ->
                 RadioRow(map.name, map.id == mapId) {
                     mapId = map.id
                     teamId = map.teams.first().id
                 }
             }
-            Text("Team", style = MaterialTheme.typography.titleMedium)
+            Text("Team", style = MaterialTheme.typography.titleMedium, color = Ink)
             selectedMap.teams.forEach { team ->
                 RadioRow(team.name, team.id == teamId) { teamId = team.id }
             }
-            Text("Impact icon", style = MaterialTheme.typography.titleMedium)
+            Text("Impact icon", style = MaterialTheme.typography.titleMedium, color = Ink)
             icons.forEach { icon ->
                 IconRow(icon, icon.id == state.settings.impactIconId) {
                     scope.launch {
@@ -899,13 +929,22 @@ fun ProtectedSettingsScreen(
                     }
                 },
             ) { Text("Save protected settings") }
-            Text("Change PIN", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(newPin, { newPin = it }, label = { Text("New PIN") }, visualTransformation = PasswordVisualTransformation())
-            OutlinedButton(onClick = { message = protectedMessage(onChangePin(pin, newPin)) }) {
+            Text("Change PIN", style = MaterialTheme.typography.titleMedium, color = Ink)
+            OutlinedTextField(
+                newPin,
+                { newPin = it },
+                label = { Text("New PIN") },
+                visualTransformation = PasswordVisualTransformation(),
+                colors = fieldColors(),
+            )
+            OutlinedButton(
+                onClick = { message = protectedMessage(onChangePin(pin, newPin)) },
+                colors = secondaryButtonColors(),
+            ) {
                 Text("Change PIN")
             }
-            message?.let { Text(it) }
-            TextButton(onClick = onBack) { Text("Back") }
+            message?.let { Text(it, color = Ink) }
+            TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
         }
     }
 }
@@ -955,8 +994,18 @@ fun CompassCalibrationScreen(
             Text("Compass calibration", style = MaterialTheme.typography.titleLarge, color = Ink)
             Text("Aim the tube at a known map point. Nearby metal can throw the heading off.", color = Ink)
             Text("Magnetic ${pose.magneticHeading?.toInt() ?: "n/a"}°, quality ${pose.quality}", color = Ink)
-            OutlinedTextField(knownLat, { knownLat = it }, label = { Text("Known-point latitude") })
-            OutlinedTextField(knownLng, { knownLng = it }, label = { Text("Known-point longitude") })
+            OutlinedTextField(
+                knownLat,
+                { knownLat = it },
+                label = { Text("Known-point latitude") },
+                colors = fieldColors(),
+            )
+            OutlinedTextField(
+                knownLng,
+                { knownLng = it },
+                label = { Text("Known-point longitude") },
+                colors = fieldColors(),
+            )
             Button(
                 colors = primaryButtonColors(),
                 onClick = {
@@ -978,8 +1027,8 @@ fun CompassCalibrationScreen(
                     )
                 },
             ) { Text("Save compass offset") }
-            message?.let { Text(it) }
-            TextButton(onClick = onBack) { Text("Back") }
+            message?.let { Text(it, color = Ink) }
+            TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
         }
     }
 }
@@ -1003,7 +1052,11 @@ private fun <T> ModeSelector(
                 .fillMaxWidth()
                 .clickable { onSelected(value) },
         ) {
-            RadioButton(selected = value == selected, onClick = { onSelected(value) })
+            RadioButton(
+                selected = value == selected,
+                onClick = { onSelected(value) },
+                colors = radioColors(),
+            )
             Text(label(value), modifier = Modifier.padding(top = 12.dp), color = Ink)
         }
     }
@@ -1019,7 +1072,7 @@ private fun IconRow(icon: CatalogIcon, selected: Boolean, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected, onClick)
+        RadioButton(selected, onClick, colors = radioColors())
         AsyncImage(model = icon.imageUrl, contentDescription = null, modifier = Modifier.height(48.dp))
         Text(icon.title, color = Ink)
     }
@@ -1032,7 +1085,7 @@ private fun CheckboxRow(label: String, checked: Boolean, onChecked: (Boolean) ->
             .fillMaxWidth()
             .clickable { onChecked(!checked) },
     ) {
-        Checkbox(checked, onCheckedChange = onChecked)
+        Checkbox(checked, onCheckedChange = onChecked, colors = checkboxColors())
         Text(label, modifier = Modifier.padding(top = 12.dp), color = Ink)
     }
 }
@@ -1044,7 +1097,7 @@ private fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick),
     ) {
-        RadioButton(selected, onClick)
+        RadioButton(selected, onClick, colors = radioColors())
         Text(label, modifier = Modifier.padding(top = 12.dp), color = Ink)
     }
 }
