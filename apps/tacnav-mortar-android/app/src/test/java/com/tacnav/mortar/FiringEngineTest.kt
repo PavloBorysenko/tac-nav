@@ -64,6 +64,29 @@ class FiringEngineTest {
     }
 
     @Test
+    fun `a miss still posts the impact marker`() = runBlocking {
+        val geo = FakeGeo()
+        val engine = FiringEngine(geo, FakeMailbox(), { 0.1 }, { "shot-miss" })
+        engine.accept(snapshot(), settings, 0, 1_000)
+        engine.resolveDue(30_000, 40_000, settings, context, online = true)
+        val shot = engine.currentShots().single()
+        assertTrue(geo.created)
+        assertEquals(emptyList<Long>(), shot.hits)
+        assertEquals(ShotPhase.COMPLETED, shot.phase)
+    }
+
+    @Test
+    fun `search failure still posts the impact marker`() = runBlocking {
+        val geo = FakeGeo()
+        geo.failSearch = true
+        val engine = FiringEngine(geo, FakeMailbox(), { 0.1 }, { "shot-search" })
+        engine.accept(snapshot(), settings, 0, 1_000)
+        engine.resolveDue(30_000, 40_000, settings, context, online = true)
+        assertTrue(geo.created)
+        assertEquals(ShotPhase.COMPLETED, engine.currentShots().single().phase)
+    }
+
+    @Test
     fun `create failure keeps the roll and does not search again`() = runBlocking {
         val geo = FakeGeo()
         val impact = Geodesy.destination(50.0, 30.0, 90.0, 200.0)
@@ -104,10 +127,12 @@ class FiringEngineTest {
         var results: List<GeometrySearchResult> = emptyList()
         var created = false
         var failCreate = false
+        var failSearch = false
         var searches = 0
 
         override suspend fun search(request: GeometrySearchRequest): List<GeometrySearchResult> {
             searches += 1
+            if (failSearch) error("Search failed")
             return results
         }
 

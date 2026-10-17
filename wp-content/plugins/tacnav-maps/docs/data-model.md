@@ -6,7 +6,7 @@ Record how maps, teams, icons, and geo objects are stored.
 
 ## Responsibilities and boundaries
 
-Post types `tacnav_map`, `tacnav_team`, and `tacnav_icon` are private UI types. Geo objects live in `{prefix}tacnav_geo_objects`, not as posts.
+Post types `tacnav_map`, `tacnav_team`, and `tacnav_icon` are private UI types. `Catalog::get_maps()`, `get_teams()`, and `get_icons()` list published titles for staff pickers. Geo objects live in `{prefix}tacnav_geo_objects`, not as posts.
 
 Map meta: `tacnav_center_lat`, `tacnav_center_lng`, `tacnav_zoom`, `tacnav_basemap` (`satellite` or `satellite-labels`), `tacnav_team_ids` (teams listed on that map). Title and description use the post title and content. Canvas pan does not write these keys. Staff set center and zoom on a Leaflet picker, not by typing coordinates.
 

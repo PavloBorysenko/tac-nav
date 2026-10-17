@@ -40,6 +40,8 @@ class ActivationAndSettingsTest {
         assertEquals(setOf(AimingMode.FREE), settings.aimingModes)
         assertEquals(30.0, settings.approximateRadiusMetres, 0.0)
         assertEquals(60.0, settings.elevationReferenceDegrees, 0.0)
+        assertEquals(15.0, settings.maxLocationAccuracyMetres, 0.0)
+        assertEquals(15L, settings.maxLocationAgeSeconds)
     }
 
     @Test

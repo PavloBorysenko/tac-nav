@@ -1,6 +1,5 @@
 package com.tacnav.mortar
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -15,6 +14,7 @@ import com.tacnav.mortar.domain.ServiceConfiguration
 import com.tacnav.mortar.domain.TeamScope
 import com.tacnav.mortar.security.LocalState
 import com.tacnav.mortar.security.PinRecord
+import com.tacnav.mortar.ui.TacNavTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -28,16 +28,16 @@ class ProtectedPathsUiTest {
     fun calibration_path_does_not_request_pin() {
         val opened = AtomicBoolean(false)
         compose.setContent {
-            MaterialTheme {
-                HomeScreen(
+            TacNavTheme {
+                SessionScreen(
                     state = state(),
-                    cachedIconPath = null,
-                    onModesSelected = { _, _ -> },
-                    onOpenSettings = {},
-                    onOpenCalibration = { opened.set(true) },
-                    onOpenIcons = {},
-                    onRegisterNotifications = {},
-                    onReactivate = {},
+                    onEndSession = {},
+                    onFire = {},
+                    onArm = {},
+                    onCalibrateElevation = { opened.set(true) },
+                    onOpenCompass = {},
+                    onResetCalibration = {},
+                    onOpenGameplay = {},
                 )
             }
         }
@@ -51,7 +51,7 @@ class ProtectedPathsUiTest {
     fun protected_settings_submit_through_pin_gate() {
         val submitted = AtomicBoolean(false)
         compose.setContent {
-            MaterialTheme {
+            TacNavTheme {
                 ProtectedSettingsScreen(
                     state = state(),
                     onSave = { _, _ ->

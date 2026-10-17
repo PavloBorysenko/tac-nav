@@ -15,6 +15,31 @@ defined( 'ABSPATH' ) || exit;
 class Catalog {
 
 	/**
+	 * Published maps for staff pickers.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function get_maps() {
+		$posts = get_posts(
+			array(
+				'post_type'      => Post_Types::MAP,
+				'post_status'    => 'publish',
+				'posts_per_page' => 50,
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+			)
+		);
+		$out   = array();
+		foreach ( $posts as $post ) {
+			$map = self::get_map( $post->ID );
+			if ( $map ) {
+				$out[] = $map;
+			}
+		}
+		return $out;
+	}
+
+	/**
 	 * Map passport.
 	 *
 	 * @param int $map_id Map post ID.

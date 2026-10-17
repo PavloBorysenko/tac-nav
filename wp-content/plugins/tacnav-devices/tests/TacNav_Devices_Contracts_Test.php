@@ -148,6 +148,8 @@ class TacNav_Devices_Contracts_Test extends TestCase {
 		$this->assertSame( array( 'free', 'approximate_coordinates' ), $result['aiming_modes'] );
 		$this->assertSame( 40.0, $result['approximate_radius_m'] );
 		$this->assertSame( 8.0, $result['damage_radius_m'] );
+		$this->assertSame( 15.0, $result['max_location_accuracy_m'] );
+		$this->assertSame( 15, $result['max_location_age_seconds'] );
 	}
 
 	/**

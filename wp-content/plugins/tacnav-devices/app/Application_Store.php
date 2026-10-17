@@ -416,11 +416,40 @@ class Application_Store {
 	 * @return array<string, mixed>
 	 */
 	private function activation_result( $application, $installation_id, $credential ) {
+		$allowed_maps  = array();
+		$allowed_teams = array();
+		foreach ( (array) $application['allowed_team_ids'] as $team_id ) {
+			$team = \TacNav\Maps\Catalog::get_team( (int) $team_id );
+			if ( $team ) {
+				$allowed_teams[ (int) $team['id'] ] = array(
+					'id'   => (int) $team['id'],
+					'name' => (string) $team['title'],
+				);
+			}
+		}
+		foreach ( (array) $application['allowed_map_ids'] as $map_id ) {
+			$map = \TacNav\Maps\Catalog::get_map( (int) $map_id );
+			if ( ! $map ) {
+				continue;
+			}
+			$teams = array();
+			foreach ( \TacNav\Maps\Catalog::team_ids( (int) $map['id'] ) as $team_id ) {
+				if ( isset( $allowed_teams[ $team_id ] ) ) {
+					$teams[] = $allowed_teams[ $team_id ];
+				}
+			}
+			$allowed_maps[] = array(
+				'id'    => (int) $map['id'],
+				'name'  => (string) $map['title'],
+				'teams' => $teams,
+			);
+		}
 		return array(
 			'application_id'     => (int) $application['id'],
 			'installation_id'    => $installation_id,
 			'application_type'   => (string) $application['application_type'],
 			'credential'         => $credential,
+			'allowed_maps'       => $allowed_maps,
 			'allowed_map_ids'    => $application['allowed_map_ids'],
 			'allowed_team_ids'   => $application['allowed_team_ids'],
 			'default_map_id'     => (int) $application['default_map_id'],

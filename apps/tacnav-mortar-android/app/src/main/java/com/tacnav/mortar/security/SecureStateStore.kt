@@ -341,8 +341,12 @@ class SecureStateStore(
         edgeProbability = value.optDouble("edge_probability", 0.5),
         flightDurationSeconds = value.optLong("flight_seconds", 20),
         impactTtlSeconds = value.optLong("ttl_seconds", 30),
-        maxLocationAccuracyMetres = value.optDouble("gps_accuracy", 10.0),
-        maxLocationAgeSeconds = value.optLong("gps_age", 5),
+        maxLocationAccuracyMetres = value.optDouble("gps_accuracy", 15.0).let { accuracy ->
+            if (accuracy == 10.0 || accuracy == 20.0) 15.0 else accuracy
+        },
+        maxLocationAgeSeconds = value.optLong("gps_age", 15).let { age ->
+            if (age == 5L) 15L else age
+        },
         acousticThresholdDbfs = value.optDouble("acoustic_threshold", -20.0),
         acousticImpulseMs = value.optLong("acoustic_impulse", 80),
         acousticDebounceMs = value.optLong("acoustic_debounce", 400),

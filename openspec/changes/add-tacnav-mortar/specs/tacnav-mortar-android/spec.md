@@ -22,7 +22,7 @@ The application SHALL be named “Tac Nav Mortar”, use package id `com.tacnav.
 
 ### Requirement: Gameplay settings live on the activated phone
 
-The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, and elevation-calibration reference angle, SHALL require a local PIN whose initial value is `4321`; performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees and the default approximate-guidance radius SHALL be 30 metres. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
+The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, and elevation-calibration reference angle, SHALL require a local PIN whose initial value is `4321`; performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees, the default approximate-guidance radius SHALL be 30 metres, and the default GPS limits SHALL be 15 metres of horizontal error and 15 seconds of fix age. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
 
 #### Scenario: PIN protects radius
 
@@ -51,12 +51,17 @@ The activated phone SHALL keep its gameplay settings locally. Changing those set
 
 ### Requirement: Current map and team are selected from activated scopes
 
-A PIN-authorized user SHALL be able to select the current map and team only from the scopes returned at activation. The application SHALL refuse to start a shot when the selected team is not available on the selected map.
+A PIN-authorized user SHALL be able to select the current map and team only from the scopes returned at activation. The application SHALL refuse to start a shot when the selected team is not available on the selected map. After activation the initiation screen SHALL show the map title on the left, the mortar name in the center, and the team title on the right, without Map or Team labels.
 
 #### Scenario: User selects an allowed context
 
 - **WHEN** a PIN-authorized user selects an allowed map and a team listed on it
 - **THEN** later impact, search, and message requests use that context
+
+#### Scenario: Initiation shows catalog titles
+
+- **WHEN** an activated phone opens the initiation screen
+- **THEN** it shows the map name, mortar name, and team name rather than numeric identifiers
 
 #### Scenario: Unallowed context is unavailable
 
@@ -74,7 +79,7 @@ The PIN-authorized impact-icon setting SHALL fetch the complete site icon catalo
 
 ### Requirement: Active game mode keeps required work foreground
 
-The player SHALL explicitly start and stop an active game session. While active, Tac Nav Mortar SHALL run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working when the screen turns off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
+The player SHALL explicitly start and stop an active game session from a separate initiation screen whose primary control is “Prepare for battle”. The session screen SHALL show GPS accuracy at the top left and range at the top right as numbers only, a large aiming readout, the fire control, a stand-down control that returns to initiation and stops the session, unprotected gameplay-settings access, and a message list that records each accepted shot and plays a shot sound. While active, Tac Nav Mortar SHALL run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working when the screen turns off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
 
 #### Scenario: Screen turns off during flight
 
@@ -92,12 +97,12 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 #### Scenario: Poor GPS blocks firing
 
-- **WHEN** the maximum accepted horizontal error is 10 metres and Android reports plus or minus 18 metres
+- **WHEN** the maximum accepted horizontal error is 15 metres and Android reports plus or minus 16 metres
 - **THEN** the application blocks the shot and reports insufficient GPS accuracy
 
 #### Scenario: Stale location blocks firing
 
-- **WHEN** the configured maximum age is five seconds and the last location is older
+- **WHEN** the configured maximum age is 15 seconds and the last location is older
 - **THEN** the application blocks the shot
 
 #### Scenario: Valid snapshot creates one shot
@@ -107,7 +112,7 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Direction calculations SHALL use true north after geomagnetic correction and a saved installation offset. A player SHALL be able to aim the tube at a known map point and set the direction offset. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal: a phone lying flat reads near 0°, and lifting the top edge SHALL increase the displayed angle toward 90°. Direction calculations SHALL use true north after geomagnetic correction and a saved installation offset. A player SHALL be able to aim the tube at a known map point and set the direction offset. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 
@@ -196,7 +201,7 @@ Each accepted shot SHALL receive a unique `shot_id`, retain its immutable sensor
 
 ### Requirement: Due shots use target positions current at resolution
 
-When a shot becomes due and the server is reachable, the application SHALL search its configured damage circle against the selected map before creating the visible impact marker. It SHALL therefore use objects at their server positions at resolution time rather than at trigger time. It SHALL then create a public point marker at the calculated impact with the configured impact icon, title derived from the mortar name, and second-based lifetime. Search failure, object-create failure, or message failure SHALL remain retryable without generating a new random result for an already resolved object.
+When a shot becomes due and the server is reachable, the application SHALL search its configured damage circle against the selected map before creating the visible impact marker. It SHALL therefore use objects at their server positions at resolution time rather than at trigger time. It SHALL then create a public point marker at the calculated impact with the configured impact icon, title derived from the mortar name, and second-based lifetime, whether the search found hits, found only misses, or failed. Object-create failure or message failure SHALL remain retryable without generating a new random result for an already resolved object.
 
 #### Scenario: Target leaves during flight
 
@@ -212,6 +217,16 @@ When a shot becomes due and the server is reachable, the application SHALL searc
 
 - **WHEN** a due shot resolves
 - **THEN** search completes before that shot’s impact marker is created
+
+#### Scenario: A miss still marks the landing
+
+- **WHEN** search returns no objects or every roll misses
+- **THEN** the application still creates the impact marker at the calculated landing
+
+#### Scenario: Search failure still marks the landing
+
+- **WHEN** search fails after a shot becomes due
+- **THEN** the application still creates the impact marker and may retry hit delivery later
 
 ### Requirement: Offline due shots resolve after connectivity returns
 

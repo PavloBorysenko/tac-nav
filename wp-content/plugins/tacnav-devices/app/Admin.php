@@ -44,6 +44,9 @@ class Admin {
 		$applications = ( new Application_Store() )->all();
 		$action       = admin_url( 'admin-post.php' );
 		$release      = self::release_metadata();
+		$tacnav_maps  = \TacNav\Maps\Catalog::get_maps();
+		$tacnav_teams = \TacNav\Maps\Catalog::get_teams();
+		$tacnav_icons = \TacNav\Maps\Catalog::get_icons();
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- staff list filter after capability check.
 		$edit_id = isset( $_GET['edit'] ) ? (int) wp_unslash( $_GET['edit'] ) : 0;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
@@ -77,8 +80,8 @@ class Admin {
 				'id'                 => isset( $_POST['id'] ) ? (int) $_POST['id'] : 0,
 				'application_type'   => isset( $_POST['application_type'] ) ? wp_unslash( $_POST['application_type'] ) : '',
 				'name'               => isset( $_POST['name'] ) ? wp_unslash( $_POST['name'] ) : '',
-				'allowed_map_ids'    => self::csv_ids( isset( $_POST['allowed_map_ids'] ) ? wp_unslash( $_POST['allowed_map_ids'] ) : '' ),
-				'allowed_team_ids'   => self::csv_ids( isset( $_POST['allowed_team_ids'] ) ? wp_unslash( $_POST['allowed_team_ids'] ) : '' ),
+				'allowed_map_ids'    => self::posted_ids( isset( $posted['allowed_map_ids'] ) ? $posted['allowed_map_ids'] : array() ),
+				'allowed_team_ids'   => self::posted_ids( isset( $posted['allowed_team_ids'] ) ? $posted['allowed_team_ids'] : array() ),
 				'default_map_id'     => isset( $_POST['default_map_id'] ) ? (int) $_POST['default_map_id'] : 0,
 				'default_team_id'    => isset( $_POST['default_team_id'] ) ? (int) $_POST['default_team_id'] : 0,
 				'reference_settings' => $reference,
@@ -211,12 +214,15 @@ class Admin {
 	}
 
 	/**
-	 * Parse comma-separated identifiers.
+	 * Parse posted catalog identifiers from checkboxes or a leftover CSV.
 	 *
-	 * @param string $value Input.
+	 * @param mixed $value Input.
 	 * @return array<int, int>
 	 */
-	private static function csv_ids( $value ) {
-		return Validation::ids( preg_split( '/\s*,\s*/', trim( $value ) ) );
+	private static function posted_ids( $value ) {
+		if ( is_array( $value ) ) {
+			return Validation::ids( $value );
+		}
+		return Validation::ids( preg_split( '/\s*,\s*/', trim( (string) $value ) ) );
 	}
 }

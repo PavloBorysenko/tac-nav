@@ -20,15 +20,20 @@ import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import android.os.Looper
+import com.google.android.gms.location.Granularity
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import com.tacnav.mortar.MortarApplication
 import com.tacnav.mortar.R
 import com.tacnav.mortar.domain.AcousticTrigger
 import com.tacnav.mortar.domain.SensorSnapshot
-import com.tacnav.mortar.network.HttpTacNavApi
+import com.tacnav.mortar.sensors.LocationAge
 import com.tacnav.mortar.sensors.PhonePose
+import com.tacnav.mortar.ui.ShotFeedback
 import kotlin.math.log10
 import kotlin.math.sqrt
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +42,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 class FiringSessionService : Service() {
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -47,6 +51,15 @@ class FiringSessionService : Service() {
     private var audio: Job? = null
     private var torchJob: Job? = null
     private var lastLocation: Location? = null
+    private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val location = result.lastLocation ?: return
+            lastLocation = location
+            pose.updateLocation(location)
+            (application as MortarApplication).publishLocation(location)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -76,6 +89,7 @@ class FiringSessionService : Service() {
         loop?.cancel()
         audio?.cancel()
         torchJob?.cancel()
+        locationClient.removeLocationUpdates(locationCallback)
         setTorch(false)
         pose.stop()
         (application as MortarApplication).repository.setSession(false)
@@ -100,6 +114,7 @@ class FiringSessionService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
         pose.start()
+        startLocationUpdates()
         val app = application as MortarApplication
         app.repository.setSession(true)
         app.bindApi()
@@ -107,7 +122,6 @@ class FiringSessionService : Service() {
         loop = scope.launch {
             val started = SystemClock.elapsedRealtime()
             while (isActive) {
-                refreshLocation()
                 val state = app.repository.state.value
                 if (state != null) {
                     pose.updateCalibration(state.calibration)
@@ -141,7 +155,7 @@ class FiringSessionService : Service() {
             latitude = location.latitude,
             longitude = location.longitude,
             accuracyMetres = location.accuracy.toDouble(),
-            ageSeconds = (System.currentTimeMillis() - location.time) / 1000.0,
+            ageSeconds = LocationAge.seconds(location),
             trueHeadingDegrees = heading,
             elevationDegrees = elevation,
             triggerEpochMillis = System.currentTimeMillis(),
@@ -154,6 +168,7 @@ class FiringSessionService : Service() {
                 System.currentTimeMillis(),
             )
         }.onSuccess {
+            ShotFeedback.play(this)
             app.publishShots(engine.currentShots())
             app.publishError(null)
             if (button) pulseTorch()
@@ -246,25 +261,19 @@ class FiringSessionService : Service() {
         }
     }
 
-    private suspend fun refreshLocation() {
+    private fun startLocationUpdates() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             return
         }
-        val client = LocationServices.getFusedLocationProviderClient(this)
-        runCatching {
-            client.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                CancellationTokenSource().token,
-            ).await()
-        }.onSuccess { location ->
-            if (location != null) {
-                lastLocation = location
-                pose.updateLocation(location)
-                (application as MortarApplication).publishLocation(location)
-            }
-        }
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L)
+            .setMinUpdateIntervalMillis(500L)
+            .setWaitForAccurateLocation(true)
+            .setGranularity(Granularity.GRANULARITY_FINE)
+            .setMaxUpdateAgeMillis(2_000L)
+            .build()
+        locationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
     }
 
     private fun isOnline(): Boolean {

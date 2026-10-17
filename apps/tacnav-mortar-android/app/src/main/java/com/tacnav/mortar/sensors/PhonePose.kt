@@ -54,7 +54,8 @@ class PhonePose(
         SensorManager.getOrientation(rotation, orientation)
         val magnetic = Geodesy.normalizeBearing(Math.toDegrees(orientation[0].toDouble()))
         val pitch = Math.toDegrees(orientation[1].toDouble())
-        val elevation = 90.0 + pitch
+        // Tube elevation from horizontal: flat phone is 0°, lifting the top raises the angle.
+        val elevation = (-pitch).coerceIn(0.0, 90.0)
         val accuracy = event.accuracy
         val quality = when (accuracy) {
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "High"

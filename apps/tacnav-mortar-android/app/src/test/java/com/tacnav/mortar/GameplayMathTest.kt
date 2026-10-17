@@ -34,15 +34,21 @@ class GameplayMathTest {
     }
 
     @Test
-    fun `eighteen metre fix is blocked at ten metre threshold`() {
-        val result = SensorGate.accept(snapshot(accuracy = 18.0), settings)
+    fun `sixteen metre fix is blocked at fifteen metre threshold`() {
+        val result = SensorGate.accept(snapshot(accuracy = 16.0), settings)
         assertTrue(result is BlockedShot)
         assertEquals("Insufficient GPS accuracy.", result.reason)
     }
 
     @Test
+    fun `fourteen metre fix is accepted at the default threshold`() {
+        val result = SensorGate.accept(snapshot(accuracy = 14.0), settings)
+        assertTrue(result is ValidShot)
+    }
+
+    @Test
     fun `stale location is blocked`() {
-        val result = SensorGate.accept(snapshot(age = 6.0), settings)
+        val result = SensorGate.accept(snapshot(age = 16.0), settings)
         assertTrue(result is BlockedShot)
         assertEquals("GPS fix is too old.", result.reason)
     }

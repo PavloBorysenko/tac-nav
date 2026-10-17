@@ -36,13 +36,14 @@ class HttpTacNavApi(
         if (response.code !in 200..299) {
             throw IOException("Search failed (${response.code}).")
         }
-        val results = JSONObject(response.body).optJSONArray("results") ?: JSONArray()
+        val results = parseArray(response.body, "results")
         return List(results.length()) { index ->
             val item = results.getJSONObject(index)
+            val geometry = item.optJSONObject("geometry") ?: JSONObject()
             GeometrySearchResult(
                 objectId = item.getLong("id"),
                 kind = item.getString("kind"),
-                geometry = decodeGeometry(item.getString("kind"), item.getJSONObject("geometry")),
+                geometry = decodeGeometry(item.getString("kind"), geometry),
                 positionAccuracyMetres = item.optDouble("position_accuracy_m").takeIf {
                     item.has("position_accuracy_m") && !item.isNull("position_accuracy_m")
                 },
@@ -83,7 +84,7 @@ class HttpTacNavApi(
             .put("client_event_id", request.clientEventId)
             .put("type", request.type)
             .put("recipient_object_ids", JSONArray(request.recipientObjectIds))
-            .put("payload", JSONObject(request.opaquePayload))
+            .put("payload", jsonValue(request.opaquePayload))
             .toString()
             .toRequestBody(JSON)
         val response = client.execute(
@@ -103,7 +104,7 @@ class HttpTacNavApi(
         if (response.code !in 200..299) {
             throw IOException("Inbox request failed (${response.code}).")
         }
-        val items = JSONArray(response.body)
+        val items = parseArray(response.body, "items")
         return List(items.length()) { index ->
             val item = items.getJSONObject(index)
             MailboxDelivery(
@@ -135,6 +136,32 @@ class HttpTacNavApi(
             .header("Authorization", "Bearer ${current.bearerCredential}")
             .header("X-TacNav-Map", mapId.toString())
             .header("X-TacNav-Team", teamId.toString())
+    }
+
+    private fun parseArray(body: String, wrapperKey: String): JSONArray {
+        val trimmed = body.trim()
+        if (trimmed.isEmpty()) {
+            return JSONArray()
+        }
+        if (trimmed.startsWith("[")) {
+            return JSONArray(trimmed)
+        }
+        return JSONObject(trimmed).optJSONArray(wrapperKey) ?: JSONArray()
+    }
+
+    private fun jsonValue(value: Any?): Any = when (value) {
+        null -> JSONObject.NULL
+        is JSONObject, is JSONArray -> value
+        is Map<*, *> -> JSONObject().also { encoded ->
+            value.forEach { (key, item) ->
+                encoded.put(key.toString(), jsonValue(item))
+            }
+        }
+        is Collection<*> -> JSONArray().also { encoded ->
+            value.forEach { encoded.put(jsonValue(it)) }
+        }
+        is Boolean, is Number, is String -> value
+        else -> value.toString()
     }
 
     private fun kindOf(geometry: Geometry): String = when (geometry) {

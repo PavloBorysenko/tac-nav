@@ -88,45 +88,60 @@ class FiringEngine(
     private fun retryable(phase: ShotPhase): Boolean =
         phase == ShotPhase.SEARCHED || phase == ShotPhase.IMPACT_CREATED || phase == ShotPhase.FAILED
 
+    private suspend fun searchHits(
+        shot: ShotRecord,
+        settings: GameplaySettings,
+        context: ActiveContext,
+    ): ShotRecord {
+        val results = geo.search(
+            GeometrySearchRequest(
+                context,
+                Geometry.Circle(
+                    shot.impactLatitude,
+                    shot.impactLongitude,
+                    settings.damageRadiusMetres,
+                ),
+            ),
+        )
+        val rolls = shot.rolls.toMutableMap()
+        val facts = mutableListOf<HitFact>()
+        val hits = mutableListOf<Long>()
+        val impact = Coordinate(shot.impactLatitude, shot.impactLongitude)
+        results.forEach { result ->
+            val distance = GeometryMath.nearestDistanceMetres(impact, result.geometry)
+            val probability = HitMath.probability(distance, settings)
+            val roll = rolls.getOrPut(result.objectId, random)
+            val fact = HitFact(result.objectId, distance, probability, roll)
+            facts += fact
+            if (roll <= probability) hits += result.objectId
+        }
+        return shot.copy(
+            phase = ShotPhase.SEARCHED,
+            rolls = rolls,
+            facts = facts,
+            hits = hits,
+            failure = null,
+        )
+    }
+
     private suspend fun resolveOne(
         shot: ShotRecord,
         settings: GameplaySettings,
         context: ActiveContext,
     ) {
-        try {
-            var current = shot
-            if (current.phase == ShotPhase.DUE || current.phase == ShotPhase.FAILED) {
-                val results = geo.search(
-                    GeometrySearchRequest(
-                        context,
-                        Geometry.Circle(
-                            current.impactLatitude,
-                            current.impactLongitude,
-                            settings.damageRadiusMetres,
-                        ),
-                    ),
-                )
-                val rolls = current.rolls.toMutableMap()
-                val facts = mutableListOf<HitFact>()
-                val hits = mutableListOf<Long>()
-                val impact = Coordinate(current.impactLatitude, current.impactLongitude)
-                results.forEach { result ->
-                    val distance = GeometryMath.nearestDistanceMetres(impact, result.geometry)
-                    val probability = HitMath.probability(distance, settings)
-                    val roll = rolls.getOrPut(result.objectId, random)
-                    val fact = HitFact(result.objectId, distance, probability, roll)
-                    facts += fact
-                    if (roll <= probability) hits += result.objectId
-                }
-                current = current.copy(
+        var current = shot
+        if (current.phase == ShotPhase.DUE || current.phase == ShotPhase.FAILED) {
+            current = try {
+                searchHits(current, settings, context)
+            } catch (error: Exception) {
+                current.copy(
                     phase = ShotPhase.SEARCHED,
-                    rolls = rolls,
-                    facts = facts,
-                    hits = hits,
-                    failure = null,
+                    failure = error.message ?: "Search failed.",
                 )
-                shots[current.shotId] = current
             }
+            shots[current.shotId] = current
+        }
+        try {
             if (current.phase == ShotPhase.SEARCHED) {
                 geo.create(
                     CreateObjectRequest(
@@ -182,7 +197,7 @@ class FiringEngine(
                 shots[current.shotId] = current.copy(phase = ShotPhase.COMPLETED)
             }
         } catch (error: Exception) {
-            val latest = shots[shot.shotId] ?: shot
+            val latest = shots[shot.shotId] ?: current
             shots[latest.shotId] = latest.copy(
                 phase = if (latest.phase == ShotPhase.DUE) ShotPhase.FAILED else latest.phase,
                 failure = error.message ?: "Resolution failed.",
