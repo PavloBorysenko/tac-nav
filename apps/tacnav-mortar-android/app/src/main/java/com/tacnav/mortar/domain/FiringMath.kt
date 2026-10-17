@@ -231,6 +231,53 @@ object Geodesy {
     }
 }
 
+object CalibrationMath {
+    const val MIN_KNOWN_POINT_METRES = 25.0
+    const val ELEVATION_MOUNT_SLACK_DEGREES = 35.0
+
+    fun elevationFromPitch(pitchDegrees: Double): Double = -pitchDegrees
+
+    fun elevationOffset(referenceDegrees: Double, measuredDegrees: Double): Double =
+        referenceDegrees - measuredDegrees
+
+    fun applyElevationOffset(measuredDegrees: Double, offsetDegrees: Double?): Double =
+        measuredDegrees + (offsetDegrees ?: 0.0)
+
+    fun elevationLooksUnmounted(measuredDegrees: Double, referenceDegrees: Double): Boolean =
+        kotlin.math.abs(measuredDegrees - referenceDegrees) > ELEVATION_MOUNT_SLACK_DEGREES
+
+    fun signedBearingOffset(knownBearingDegrees: Double, measuredTrueHeadingDegrees: Double): Double {
+        var delta = (knownBearingDegrees - measuredTrueHeadingDegrees) % 360.0
+        if (delta > 180.0) {
+            delta -= 360.0
+        }
+        if (delta <= -180.0) {
+            delta += 360.0
+        }
+        return delta
+    }
+
+    fun applyHeadingOffset(trueHeadingDegrees: Double, offsetDegrees: Double?): Double =
+        Geodesy.normalizeBearing(trueHeadingDegrees + (offsetDegrees ?: 0.0))
+
+    fun knownPointTooClose(
+        originLatitude: Double,
+        originLongitude: Double,
+        knownLatitude: Double,
+        knownLongitude: Double,
+    ): Boolean = Geodesy.distanceMetres(
+        originLatitude,
+        originLongitude,
+        knownLatitude,
+        knownLongitude,
+    ) < MIN_KNOWN_POINT_METRES
+
+    fun parseCoordinate(value: String): Double? {
+        val parsed = value.trim().replace(',', '.').toDoubleOrNull() ?: return null
+        return parsed.takeIf { it.isFinite() }
+    }
+}
+
 object GeometryMath {
     fun nearestDistanceMetres(impact: Coordinate, geometry: Geometry): Double = when (geometry) {
         is Geometry.Marker -> Geodesy.distanceMetres(

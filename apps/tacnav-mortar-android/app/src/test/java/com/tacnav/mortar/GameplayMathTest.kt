@@ -3,6 +3,7 @@ package com.tacnav.mortar
 import com.tacnav.mortar.domain.AcousticTrigger
 import com.tacnav.mortar.domain.Ballistics
 import com.tacnav.mortar.domain.BlockedShot
+import com.tacnav.mortar.domain.CalibrationMath
 import com.tacnav.mortar.domain.GameplaySettings
 import com.tacnav.mortar.domain.Geodesy
 import com.tacnav.mortar.domain.GeometryMath
@@ -120,6 +121,42 @@ class GameplayMathTest {
         assertNull(before.alongMetres)
         val after = GuidanceMath.approximate(origin, target, settings, revealMetres = true)
         assertTrue((after.crossMetres ?: 0.0) > 0.0)
+    }
+
+    @Test
+    fun `known-point offset makes the same aim read the known bearing`() {
+        val measured = 128.0
+        val known = 42.0
+        val offset = CalibrationMath.signedBearingOffset(known, measured)
+        assertEquals(known, CalibrationMath.applyHeadingOffset(measured, offset), 0.0001)
+        assertEquals(
+            0.0,
+            CalibrationMath.applyHeadingOffset(90.0, CalibrationMath.signedBearingOffset(0.0, 90.0)),
+            0.0001,
+        )
+    }
+
+    @Test
+    fun `known point closer than 25 m is rejected`() {
+        val near = Geodesy.destination(50.0, 30.0, 90.0, 10.0)
+        assertTrue(CalibrationMath.knownPointTooClose(50.0, 30.0, near.latitude, near.longitude))
+        val far = Geodesy.destination(50.0, 30.0, 90.0, 80.0)
+        assertFalse(CalibrationMath.knownPointTooClose(50.0, 30.0, far.latitude, far.longitude))
+    }
+
+    @Test
+    fun `flat phone is not accepted as the 60 degree reference`() {
+        assertTrue(CalibrationMath.elevationLooksUnmounted(0.0, 60.0))
+        assertFalse(CalibrationMath.elevationLooksUnmounted(55.0, 60.0))
+    }
+
+    @Test
+    fun `elevation below the horizon is not clamped to the reference`() {
+        val offset = CalibrationMath.elevationOffset(60.0, 0.0)
+        assertEquals(53.0, CalibrationMath.applyElevationOffset(-7.0, offset), 0.0001)
+        assertEquals(67.0, CalibrationMath.applyElevationOffset(7.0, offset), 0.0001)
+        assertEquals(-7.0, CalibrationMath.elevationFromPitch(7.0), 0.0001)
+        assertEquals(60.0, CalibrationMath.elevationFromPitch(-60.0), 0.0001)
     }
 
     @Test

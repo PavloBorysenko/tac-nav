@@ -2,8 +2,6 @@ package com.tacnav.mortar
 
 import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.hardware.SensorManager
 import android.location.Location
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -49,7 +47,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -61,7 +58,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
-import com.google.android.gms.location.LocationServices
 import com.google.firebase.messaging.FirebaseMessaging
 import com.tacnav.mortar.activation.ActivationPayload
 import com.tacnav.mortar.activation.ActivationPayloadParser
@@ -71,6 +67,7 @@ import com.tacnav.mortar.data.ProtectedResult
 import com.tacnav.mortar.data.ProtectedSettingsUpdate
 import com.tacnav.mortar.domain.AimingMode
 import com.tacnav.mortar.domain.Ballistics
+import com.tacnav.mortar.domain.CalibrationMath
 import com.tacnav.mortar.domain.CatalogIcon
 import com.tacnav.mortar.domain.FiringMode
 import com.tacnav.mortar.domain.GameplaySettings
@@ -82,7 +79,6 @@ import com.tacnav.mortar.domain.ShotRecord
 import com.tacnav.mortar.network.Coordinate
 import com.tacnav.mortar.sensors.LivePose
 import com.tacnav.mortar.sensors.LocationAge
-import com.tacnav.mortar.sensors.PhonePose
 import com.tacnav.mortar.security.CalibrationState
 import com.tacnav.mortar.security.LocalState
 import com.tacnav.mortar.security.PinAttempt
@@ -98,8 +94,6 @@ import com.tacnav.mortar.ui.primaryButtonColors
 import com.tacnav.mortar.ui.radioColors
 import com.tacnav.mortar.ui.secondaryButtonColors
 import com.tacnav.mortar.ui.textButtonColors
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -240,6 +234,7 @@ fun MortarApp(
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.INITIATION) }
     var settingsReturn by rememberSaveable { mutableStateOf(Screen.INITIATION) }
+    var calibrationNote by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == null) {
         ActivationScreen(onActivate)
         return
@@ -279,6 +274,7 @@ fun MortarApp(
             acousticLevel = acousticLevel,
             location = location,
             pose = pose,
+            calibrationNote = calibrationNote,
             onEndSession = {
                 onStopSession()
                 screen = Screen.INITIATION
@@ -286,15 +282,30 @@ fun MortarApp(
             onFire = onFire,
             onArm = onArm,
             onCalibrateElevation = {
-                val measured = pose.elevation ?: return@SessionScreen
-                repository.saveCalibration(
-                    state.calibration.copy(
-                        elevationOffsetDegrees = state.settings.elevationReferenceDegrees - measured,
-                    ),
-                )
+                val measured = pose.elevation
+                val reference = state.settings.elevationReferenceDegrees
+                calibrationNote = when {
+                    measured == null -> "Elevation is unavailable."
+                    CalibrationMath.elevationLooksUnmounted(measured, reference) ->
+                        "Set the tube to ${reference.toInt()}° with the plumb, then tap ∠. A flat phone cannot become ${reference.toInt()}°."
+                    else -> {
+                        repository.saveCalibration(
+                            state.calibration.copy(
+                                elevationOffsetDegrees = CalibrationMath.elevationOffset(
+                                    reference,
+                                    measured,
+                                ),
+                            ),
+                        )
+                        "Elevation now reads ${reference.toInt()}° at this tube position."
+                    }
+                }
             },
             onOpenCompass = { screen = Screen.COMPASS },
-            onResetCalibration = { repository.saveCalibration(CalibrationState()) },
+            onResetCalibration = {
+                repository.saveCalibration(CalibrationState())
+                calibrationNote = "Calibration cleared."
+            },
             onOpenGameplay = {
                 settingsReturn = Screen.SESSION
                 screen = Screen.GAMEPLAY
@@ -317,8 +328,11 @@ fun MortarApp(
         )
         Screen.COMPASS -> CompassCalibrationScreen(
             calibration = state.calibration,
+            pose = pose,
+            location = location,
             onSave = {
                 repository.saveCalibration(it)
+                calibrationNote = "This aim now reads the bearing to the known point."
                 screen = Screen.SESSION
             },
             onBack = { screen = Screen.SESSION },
@@ -526,6 +540,7 @@ fun SessionScreen(
     onOpenCompass: () -> Unit,
     onResetCalibration: () -> Unit,
     onOpenGameplay: () -> Unit,
+    calibrationNote: String? = null,
 ) {
     val elevation = pose.calibratedElevation
     val range = elevation?.let {
@@ -537,6 +552,7 @@ fun SessionScreen(
             shot.failure?.let { add(it) }
         }
         sessionError?.let { add(it) }
+        calibrationNote?.let { add(it) }
     }
     TacNavChrome {
         Box(Modifier.fillMaxSize()) {
@@ -674,8 +690,13 @@ private fun AimingReadout(
                     color = Ink,
                 )
                 Text(
-                    heading?.let { "${it.toInt()}°" } ?: "",
+                    heading?.let { "heading ${it.toInt()}°" } ?: "heading unavailable",
                     fontSize = 20.sp,
+                    color = Ink,
+                )
+                Text(
+                    pose.elevation?.let { "sensor ${it.toInt()}°" } ?: "",
+                    fontSize = 16.sp,
                     color = Ink.copy(alpha = 0.75f),
                 )
             }
@@ -952,37 +973,24 @@ fun ProtectedSettingsScreen(
 @Composable
 fun CompassCalibrationScreen(
     calibration: CalibrationState,
+    pose: LivePose,
+    location: Location?,
     onSave: (CalibrationState) -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
-    var pose by remember { mutableStateOf(LivePose()) }
-    var location by remember { mutableStateOf<Location?>(null) }
     var knownLat by rememberSaveable { mutableStateOf("") }
     var knownLng by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        val phone = PhonePose(
-            context.getSystemService(android.content.Context.SENSOR_SERVICE) as SensorManager,
-        )
-        phone.start()
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            LocationServices.getFusedLocationProviderClient(context).lastLocation
-                .addOnSuccessListener {
-                    location = it
-                    phone.updateLocation(it)
-                }
-        }
-        try {
-            while (isActive) {
-                pose = phone.pose
-                delay(200)
-            }
-        } finally {
-            phone.stop()
-        }
+    val lat = CalibrationMath.parseCoordinate(knownLat)
+    val lng = CalibrationMath.parseCoordinate(knownLng)
+    val heading = pose.trueHeading
+    val fix = location
+    val preview = if (lat != null && lng != null && heading != null && fix != null) {
+        val distance = Geodesy.distanceMetres(fix.latitude, fix.longitude, lat, lng)
+        val known = Geodesy.bearingDegrees(fix.latitude, fix.longitude, lat, lng)
+        Triple(distance, known, CalibrationMath.applyHeadingOffset(heading, CalibrationMath.signedBearingOffset(known, heading)))
+    } else {
+        null
     }
     TacNavChrome {
         Column(
@@ -992,8 +1000,14 @@ fun CompassCalibrationScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Compass calibration", style = MaterialTheme.typography.titleLarge, color = Ink)
-            Text("Aim the tube at a known map point. Nearby metal can throw the heading off.", color = Ink)
-            Text("Magnetic ${pose.magneticHeading?.toInt() ?: "n/a"}°, quality ${pose.quality}", color = Ink)
+            Text(
+                "Stand at the mortar. Aim the tube at a distant map point and enter that point’s coordinates, not this phone’s.",
+                color = Ink,
+            )
+            Text(
+                "True heading ${heading?.toInt() ?: "n/a"}°, GPS ${fix?.accuracy?.toInt() ?: "n/a"} m, quality ${pose.quality}",
+                color = Ink,
+            )
             OutlinedTextField(
                 knownLat,
                 { knownLat = it },
@@ -1006,23 +1020,40 @@ fun CompassCalibrationScreen(
                 label = { Text("Known-point longitude") },
                 colors = fieldColors(),
             )
+            preview?.let { (distance, known, after) ->
+                Text(
+                    "Point is ${distance.toInt()} m away at ${known.toInt()}°. Save will make this aim read ${after.toInt()}°.",
+                    color = Ink,
+                )
+            }
             Button(
                 colors = primaryButtonColors(),
                 onClick = {
-                    val lat = knownLat.toDoubleOrNull()
-                    val lng = knownLng.toDoubleOrNull()
-                    val heading = pose.trueHeading
-                    val fix = location
-                    if (lat == null || lng == null || heading == null || fix == null) {
-                        message = "Aim at the known point after a GPS fix is available."
+                    val knownLatValue = lat
+                    val knownLngValue = lng
+                    if (knownLatValue == null || knownLngValue == null || heading == null || fix == null) {
+                        message = "Aim at the known point after a live GPS fix is available."
                         return@Button
                     }
-                    val known = Geodesy.bearingDegrees(fix.latitude, fix.longitude, lat, lng)
+                    if (CalibrationMath.knownPointTooClose(
+                            fix.latitude,
+                            fix.longitude,
+                            knownLatValue,
+                            knownLngValue,
+                        )
+                    ) {
+                        message = "The known point is too close to this GPS fix. Enter the target’s coordinates, not the mortar’s."
+                        return@Button
+                    }
+                    val known = Geodesy.bearingDegrees(
+                        fix.latitude,
+                        fix.longitude,
+                        knownLatValue,
+                        knownLngValue,
+                    )
                     onSave(
                         calibration.copy(
-                            directionOffsetDegrees = Geodesy.normalizeBearing(known - heading).let {
-                                if (it > 180) it - 360.0 else it
-                            },
+                            directionOffsetDegrees = CalibrationMath.signedBearingOffset(known, heading),
                         ),
                     )
                 },

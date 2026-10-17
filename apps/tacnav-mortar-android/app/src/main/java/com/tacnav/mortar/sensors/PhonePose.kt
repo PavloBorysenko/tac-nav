@@ -6,6 +6,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
+import com.tacnav.mortar.domain.CalibrationMath
 import com.tacnav.mortar.domain.Geodesy
 import com.tacnav.mortar.security.CalibrationState
 
@@ -54,8 +55,9 @@ class PhonePose(
         SensorManager.getOrientation(rotation, orientation)
         val magnetic = Geodesy.magneticHeadingFromRotation(rotation)
         val pitch = Math.toDegrees(orientation[1].toDouble())
-        // Tube elevation from horizontal: flat phone is 0°, lifting the top raises the angle.
-        val elevation = (-pitch).coerceIn(0.0, 90.0)
+        // Tube elevation from horizontal: flat is 0°, lifting the top raises the angle,
+        // dipping the top below the horizon is negative. Do not clamp before offset.
+        val elevation = CalibrationMath.elevationFromPitch(pitch)
         val accuracy = event.accuracy
         val quality = when (accuracy) {
             SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "High"
@@ -84,9 +86,12 @@ class PhonePose(
             trueHeading = trueHeading,
             elevation = elevation,
             calibratedHeading = trueHeading?.let {
-                Geodesy.normalizeBearing(it + (calibration.directionOffsetDegrees ?: 0.0))
+                CalibrationMath.applyHeadingOffset(it, calibration.directionOffsetDegrees)
             },
-            calibratedElevation = elevation + (calibration.elevationOffsetDegrees ?: 0.0),
+            calibratedElevation = CalibrationMath.applyElevationOffset(
+                elevation,
+                calibration.elevationOffsetDegrees,
+            ),
             quality = quality,
         )
     }

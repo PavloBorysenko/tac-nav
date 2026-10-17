@@ -117,12 +117,17 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal: a phone lying flat reads near 0°, and lifting the top edge SHALL increase the displayed angle toward 90°. Direction SHALL be the horizontal projection of that tube axis, converted to true north after geomagnetic correction and a saved installation offset. It MUST NOT use the flat-phone yaw from `getOrientation`, which changes sign when the tube is steep. A player SHALL be able to aim the tube at a known map point and set the direction offset. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat its top edge as the firing direction and its longitudinal axis as parallel to the tube. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be the horizontal projection of that tube axis, converted to true north after geomagnetic correction and a saved installation offset. It MUST NOT use the flat-phone yaw from `getOrientation`, which changes sign when the tube is steep. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate or a stale landmark fix cannot save an offset that forces the current aim to north. After a successful save, the same aim SHALL read the true bearing to the known point. Elevation calibration SHALL instruct the player to set the mortar to the configured reference angle, defaulting to 60 degrees using the physical plumb indicator, and a single calibration action SHALL save the difference between that reference and the phone’s current measured elevation. It SHALL refuse calibration when the phone is nearly flat relative to that reference. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 
-- **WHEN** a player aims the tube at a selected known point and confirms calibration
-- **THEN** the application saves the difference between the known true bearing and the measured heading as the installation offset
+- **WHEN** a player aims the tube at a selected known point at least 25 metres away and confirms calibration
+- **THEN** the application saves the difference between the known true bearing and the measured heading, and that same aim reads the known bearing
+
+#### Scenario: Nearby known point is refused
+
+- **WHEN** the entered point is within 25 metres of the live mortar GPS fix
+- **THEN** the application refuses to save a direction offset and leaves the heading unchanged
 
 #### Scenario: Repositioned mortar can be recalibrated
 
@@ -133,6 +138,16 @@ The mounted phone SHALL treat its top edge as the firing direction and its longi
 
 - **WHEN** the reference remains at its default and the player sets the mortar to 60 degrees and activates elevation calibration
 - **THEN** the application saves the offset that makes the current physical position read as 60 degrees
+
+#### Scenario: Flat phone cannot become the reference elevation
+
+- **WHEN** the phone is nearly horizontal and the player activates elevation calibration
+- **THEN** the application refuses to save an offset and the displayed elevation is not forced to 60 degrees
+
+#### Scenario: Lowering the tube can read below the reference
+
+- **WHEN** elevation is calibrated at the reference and the player then lowers the tube
+- **THEN** the calibrated elevation decreases below the reference instead of sticking at 60 degrees
 
 ### Requirement: Range is a linear function of elevation
 
