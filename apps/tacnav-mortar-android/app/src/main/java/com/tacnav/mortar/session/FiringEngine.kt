@@ -1,6 +1,7 @@
 package com.tacnav.mortar.session
 
 import com.tacnav.mortar.domain.ActiveContext
+import com.tacnav.mortar.domain.CalibrationMath
 import com.tacnav.mortar.domain.GameplaySettings
 import com.tacnav.mortar.domain.Geodesy
 import com.tacnav.mortar.domain.GeometryMath
@@ -29,6 +30,7 @@ class FiringEngine(
 ) {
     private val shots = linkedMapOf<String, ShotRecord>()
     private var ownPositionObjectId: Long? = null
+    private var directionLineObjectId: Long? = null
 
     fun currentShots(): List<ShotRecord> = shots.values.toList()
 
@@ -222,6 +224,35 @@ class FiringEngine(
         }
         ownPositionObjectId = geo.create(request).objectId
     }
+
+    suspend fun publishDirectionLine(
+        latitude: Double,
+        longitude: Double,
+        bearingDegrees: Double,
+        accuracyMetres: Double,
+        settings: GameplaySettings,
+        context: ActiveContext,
+    ): Double {
+        val knownBearing = Geodesy.normalizeBearing(bearingDegrees)
+        val request = MortarMark.directionLineRequest(
+            latitude,
+            longitude,
+            knownBearing,
+            accuracyMetres,
+            settings,
+            context,
+        )
+        val existing = directionLineObjectId
+        if (existing != null) {
+            val updated = runCatching { geo.update(existing, request) }.getOrNull()
+            if (updated != null) {
+                directionLineObjectId = updated.objectId
+                return knownBearing
+            }
+        }
+        directionLineObjectId = geo.create(request).objectId
+        return knownBearing
+    }
 }
 
 object MortarMark {
@@ -247,4 +278,26 @@ object MortarMark {
             positionAccuracyMetres = shot.snapshot.accuracyMetres,
         )
     }
+
+    const val DIRECTION_CLIENT_OBJECT_ID = "mortar-calibration-direction"
+    const val DIRECTION_LINE_TTL_SECONDS = 30L
+
+    fun directionLineRequest(
+        latitude: Double,
+        longitude: Double,
+        bearingDegrees: Double,
+        accuracyMetres: Double,
+        settings: GameplaySettings,
+        context: ActiveContext,
+    ): CreateObjectRequest = CreateObjectRequest(
+        context = context,
+        clientObjectId = DIRECTION_CLIENT_OBJECT_ID,
+        kind = "polyline",
+        geometry = CalibrationMath.directionLine(latitude, longitude, bearingDegrees),
+        title = "${settings.mortarName} direction",
+        iconId = null,
+        visibleTeamIds = listOf(context.teamId),
+        ttlSeconds = DIRECTION_LINE_TTL_SECONDS,
+        positionAccuracyMetres = accuracyMetres,
+    )
 }

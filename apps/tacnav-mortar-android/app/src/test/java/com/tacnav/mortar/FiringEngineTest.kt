@@ -88,6 +88,34 @@ class FiringEngineTest {
     }
 
     @Test
+    fun `direction line is a 100 m polyline that updates in place`() = runBlocking {
+        val geo = FakeGeo()
+        val engine = FiringEngine(geo, FakeMailbox())
+        val first = engine.publishDirectionLine(50.0, 30.0, 42.0, 8.0, settings, context)
+        assertEquals(42.0, first, 0.0001)
+        val request = MortarMark.directionLineRequest(50.0, 30.0, 42.0, 8.0, settings, context)
+        val line = request.geometry as Geometry.Polyline
+        assertEquals("polyline", request.kind)
+        assertEquals(MortarMark.DIRECTION_CLIENT_OBJECT_ID, request.clientObjectId)
+        assertEquals(30L, request.ttlSeconds)
+        assertEquals(listOf(context.teamId), request.visibleTeamIds)
+        assertEquals(2, line.points.size)
+        assertEquals(
+            100.0,
+            Geodesy.distanceMetres(
+                50.0,
+                30.0,
+                line.points[1].latitude,
+                line.points[1].longitude,
+            ),
+            0.5,
+        )
+        engine.publishDirectionLine(50.0, 30.0, 90.0, 8.0, settings, context)
+        assertEquals(1, geo.creates)
+        assertEquals(1, geo.updates)
+    }
+
+    @Test
     fun `own position mark is off by default and lasts 30 seconds when enabled`() {
         val engine = FiringEngine(FakeGeo(), FakeMailbox(), { 0.1 }, { "shot-pos" })
         val shot = engine.accept(snapshot(), settings, 0, 1_000)

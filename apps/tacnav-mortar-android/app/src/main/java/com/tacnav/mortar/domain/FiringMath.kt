@@ -209,9 +209,9 @@ object Geodesy {
     /**
      * Magnetic heading of the aim axis from an Android rotation matrix.
      *
-     * World frame is east / north / up. Aim is through the screen (−Z) whenever
-     * that axis has a horizontal component, so Save and a mounted shot use the
-     * same axis. The top edge (Y) is used only when the phone is lying flat.
+     * World frame is east / north / up. The more horizontal of the top edge (Y)
+     * and through-screen (−Z) axes is used so a steep mount stays stable and a
+     * dip below the horizon does not reverse azimuth.
      */
     fun magneticHeadingFromRotation(rotation: FloatArray): Double {
         if (rotation.size < 9) {
@@ -221,10 +221,11 @@ object Geodesy {
         val topNorth = rotation[4].toDouble()
         val throughEast = -rotation[2].toDouble()
         val throughNorth = -rotation[5].toDouble()
+        val topH = hypot(topEast, topNorth)
         val throughH = hypot(throughEast, throughNorth)
         val east: Double
         val north: Double
-        if (throughH > 0.05) {
+        if (throughH > topH) {
             east = throughEast
             north = throughNorth
         } else {
@@ -247,6 +248,19 @@ object Geodesy {
 
 object CalibrationMath {
     const val MIN_KNOWN_POINT_METRES = 25.0
+    const val DIRECTION_LINE_METRES = 100.0
+
+    fun directionLine(
+        latitude: Double,
+        longitude: Double,
+        bearingDegrees: Double,
+        lengthMetres: Double = DIRECTION_LINE_METRES,
+    ): Geometry.Polyline {
+        val end = Geodesy.destination(latitude, longitude, bearingDegrees, lengthMetres)
+        return Geometry.Polyline(
+            listOf(Coordinate(latitude, longitude), end),
+        )
+    }
 
     fun elevationFromPitch(pitchDegrees: Double): Double = -pitchDegrees
 

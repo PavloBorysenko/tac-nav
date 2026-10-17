@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
                     onStopSession = ::stopSession,
                     onFire = ::fire,
                     onArm = ::armAcoustic,
+                    onGiveDirection = ::giveDirection,
                 )
             }
         }
@@ -193,6 +194,25 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private suspend fun giveDirection(
+        latitude: Double,
+        longitude: Double,
+        heading: Double,
+        accuracyMetres: Double,
+    ): Double {
+        val current = repository.state.value ?: error("Not activated.")
+        val app = application as MortarApplication
+        app.bindApi()
+        return app.firingEngine.publishDirectionLine(
+            latitude,
+            longitude,
+            heading,
+            accuracyMetres,
+            current.settings,
+            current.context,
+        )
+    }
+
     private fun registerNotifications() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             ActivityCompat.requestPermissions(
@@ -231,6 +251,7 @@ fun MortarApp(
     onStopSession: () -> Unit = {},
     onFire: () -> Unit = {},
     onArm: () -> Unit = {},
+    onGiveDirection: suspend (Double, Double, Double, Double) -> Double = { _, _, heading, _ -> heading },
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.INITIATION) }
     var settingsReturn by rememberSaveable { mutableStateOf(Screen.INITIATION) }
@@ -327,9 +348,10 @@ fun MortarApp(
             calibration = state.calibration,
             pose = pose,
             location = location,
-            onSave = {
-                repository.saveCalibration(it)
-                calibrationNote = "This aim now reads the bearing to the known point."
+            onGiveDirection = onGiveDirection,
+            onSave = { next, note ->
+                repository.saveCalibration(next)
+                calibrationNote = note
                 screen = Screen.SESSION
             },
             onBack = { screen = Screen.SESSION },
@@ -978,16 +1000,28 @@ fun CompassCalibrationScreen(
     calibration: CalibrationState,
     pose: LivePose,
     location: Location?,
-    onSave: (CalibrationState) -> Unit,
+    onGiveDirection: suspend (Double, Double, Double, Double) -> Double,
+    onSave: (CalibrationState, String) -> Unit,
     onBack: () -> Unit,
 ) {
     var knownLat by rememberSaveable { mutableStateOf("") }
     var knownLng by rememberSaveable { mutableStateOf("") }
+    var givenBearing by rememberSaveable { mutableStateOf<Double?>(null) }
+    var giving by remember { mutableStateOf(false) }
     var message by rememberSaveable { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val lat = CalibrationMath.parseCoordinate(knownLat)
     val lng = CalibrationMath.parseCoordinate(knownLng)
     val heading = pose.trueHeading
     val fix = location
+    val linePreview = givenBearing?.let { known ->
+        heading?.let { measured ->
+            CalibrationMath.applyHeadingOffset(
+                measured,
+                CalibrationMath.signedBearingOffset(known, measured),
+            )
+        }
+    }
     val preview = if (lat != null && lng != null && heading != null && fix != null) {
         val distance = Geodesy.distanceMetres(fix.latitude, fix.longitude, lat, lng)
         val known = Geodesy.bearingDegrees(fix.latitude, fix.longitude, lat, lng)
@@ -1004,11 +1038,69 @@ fun CompassCalibrationScreen(
         ) {
             Text("Compass calibration", style = MaterialTheme.typography.titleLarge, color = Ink)
             Text(
-                "Keep the phone aimed at the known point and tap Save. Heading is taken at that moment.",
+                "Give direction draws a ${CalibrationMath.DIRECTION_LINE_METRES.toInt()} m line on the map from this GPS fix. It is visible only to this team for 30 seconds. Check that line, turn the phone onto it, then save.",
                 color = Ink,
             )
             Text(
                 "Heading ${heading?.toInt() ?: "n/a"}°, GPS ${fix?.accuracy?.toInt() ?: "n/a"} m, quality ${pose.quality}",
+                color = Ink,
+            )
+            givenBearing?.let { known ->
+                Text(
+                    "Map line is at ${known.toInt()}°. Aim along it${
+                        linePreview?.let { "; this aim will then read ${it.toInt()}°" } ?: ""
+                    }.",
+                    color = Ink,
+                )
+            }
+            Button(
+                colors = primaryButtonColors(),
+                enabled = !giving,
+                onClick = {
+                    if (heading == null || fix == null) {
+                        message = "Wait for a live GPS fix and heading before giving a direction."
+                        return@Button
+                    }
+                    giving = true
+                    val origin = fix
+                    val measured = heading
+                    scope.launch {
+                        runCatching {
+                            onGiveDirection(
+                                origin.latitude,
+                                origin.longitude,
+                                measured,
+                                origin.accuracy.toDouble(),
+                            )
+                        }.onSuccess { known ->
+                            givenBearing = known
+                            message = "A ${CalibrationMath.DIRECTION_LINE_METRES.toInt()} m line is on the map at ${known.toInt()}°. Aim along it, then save."
+                        }.onFailure {
+                            message = it.message ?: "The direction line could not be drawn."
+                        }
+                        giving = false
+                    }
+                },
+            ) { Text("Give direction") }
+            Button(
+                colors = secondaryButtonColors(),
+                onClick = {
+                    val known = givenBearing
+                    if (known == null || heading == null) {
+                        message = "Give a direction and aim along that map line first."
+                        return@Button
+                    }
+                    onSave(
+                        calibration.copy(
+                            directionOffsetDegrees = CalibrationMath.signedBearingOffset(known, heading),
+                        ),
+                        "This aim now reads the map-line bearing.",
+                    )
+                },
+            ) { Text("Save this direction") }
+            Text("Or use a known point", color = Ink, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Keep the phone aimed at the known point and tap Save. Heading is taken at that moment.",
                 color = Ink,
             )
             OutlinedTextField(
@@ -1058,6 +1150,7 @@ fun CompassCalibrationScreen(
                         calibration.copy(
                             directionOffsetDegrees = CalibrationMath.signedBearingOffset(known, heading),
                         ),
+                        "This aim now reads the bearing to the known point.",
                     )
                 },
             ) { Text("Save compass offset") }

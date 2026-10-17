@@ -183,6 +183,37 @@ class GameplayMathTest {
     }
 
     @Test
+    fun `direction line is 100 m along the given bearing`() {
+        val originLat = 50.0
+        val originLng = 30.0
+        val heading = 128.0
+        val line = CalibrationMath.directionLine(originLat, originLng, heading)
+        assertEquals(2, line.points.size)
+        assertEquals(originLat, line.points[0].latitude, 0.0)
+        assertEquals(originLng, line.points[0].longitude, 0.0)
+        assertEquals(
+            CalibrationMath.DIRECTION_LINE_METRES,
+            Geodesy.distanceMetres(
+                originLat,
+                originLng,
+                line.points[1].latitude,
+                line.points[1].longitude,
+            ),
+            0.5,
+        )
+        assertBearingEquals(
+            heading,
+            Geodesy.bearingDegrees(
+                originLat,
+                originLng,
+                line.points[1].latitude,
+                line.points[1].longitude,
+            ),
+            0.01,
+        )
+    }
+
+    @Test
     fun `known point closer than 25 m is rejected`() {
         val near = Geodesy.destination(50.0, 30.0, 90.0, 10.0)
         assertTrue(CalibrationMath.knownPointTooClose(50.0, 30.0, near.latitude, near.longitude))
@@ -235,6 +266,25 @@ class GameplayMathTest {
         )
         assertEquals(0.0, Geodesy.magneticHeadingFromRotation(northThroughScreen), 0.0001)
         assertEquals(90.0, Geodesy.magneticHeadingFromRotation(eastThroughScreen), 0.0001)
+    }
+
+    @Test
+    fun `heading does not reverse when the top dips below the horizon`() {
+        val dip = Math.toRadians(10.0)
+        val cos = kotlin.math.cos(dip).toFloat()
+        val sin = kotlin.math.sin(dip).toFloat()
+        val belowHorizon = floatArrayOf(
+            1f, 0f, 0f,
+            0f, cos, sin,
+            0f, -sin, cos,
+        )
+        val aboveHorizon = floatArrayOf(
+            1f, 0f, 0f,
+            0f, cos, -sin,
+            0f, sin, cos,
+        )
+        assertEquals(0.0, Geodesy.magneticHeadingFromRotation(belowHorizon), 0.5)
+        assertEquals(0.0, Geodesy.magneticHeadingFromRotation(aboveHorizon), 0.5)
     }
 
     @Test

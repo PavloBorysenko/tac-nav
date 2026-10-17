@@ -117,12 +117,17 @@ At trigger time the application SHALL capture the current latitude, longitude, h
 
 ### Requirement: Direction and elevation can be calibrated rapidly
 
-The mounted phone SHALL treat the direction through the screen (the back of the phone) as the firing direction whenever that axis has a horizontal component, including at Save and at trigger, and the top edge only when the phone is lying flat. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be converted to true north after geomagnetic correction and a saved installation offset. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading at the moment the player confirms Save. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate cannot save an offset that forces the current aim to north. After a successful save, that same aim SHALL read the true bearing to the known point. Elevation calibration SHALL save the difference between the configured reference angle, defaulting to 60 degrees, and the phone’s current measured elevation, including when the phone is nearly flat. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
+The mounted phone SHALL treat the more horizontal of the top edge and the direction through the screen (the back of the phone) as the firing direction at Save and at trigger, so a steep mount stays stable and dipping the top below the horizon SHALL NOT reverse azimuth. Tube elevation SHALL be measured from horizontal without clamping before the installation offset: a phone lying flat reads near 0°, lifting the top edge SHALL increase the angle toward 90°, and dipping the top below the horizon SHALL read negative. Direction SHALL be converted to true north after geomagnetic correction and a saved installation offset. Known-point calibration SHALL use the live mortar GPS fix and the uncalibrated true heading at the moment the player confirms Save. It SHALL refuse a point closer than 25 metres to that fix so a self-coordinate cannot save an offset that forces the current aim to north. After a successful save, that same aim SHALL read the true bearing to the known point. Map-line calibration SHALL offer Give direction and Save this direction on the same compass screen. Give direction SHALL post a 100-metre polyline on the active map from the live mortar GPS fix along the uncalibrated true heading at that moment, visible only to this mortar’s team and expiring after 30 seconds. After the player aims along that drawn line, Save this direction SHALL store the signed difference between that posted true bearing and the uncalibrated true heading at Save, and that same aim SHALL read the posted bearing. Elevation calibration SHALL save the difference between the configured reference angle, defaulting to 60 degrees, and the phone’s current measured elevation, including when the phone is nearly flat. The calibrated display MAY fall below the reference when the tube is lowered. The application SHALL expose sensor-quality warnings because nearby metal can make one calibration inaccurate at other headings.
 
 #### Scenario: Known-point direction calibration
 
 - **WHEN** a player aims the phone at a selected known point at least 25 metres away and confirms calibration
 - **THEN** the application saves the difference between the known true bearing and the heading at Save, and that same aim reads the known bearing
+
+#### Scenario: Map-line direction calibration
+
+- **WHEN** a player taps Give direction and then aims along the posted 100-metre map line before tapping Save this direction
+- **THEN** the application posts that line for this team only for 30 seconds, saves the difference between that line’s true bearing and the heading at Save, and that same aim reads the posted bearing
 
 #### Scenario: Nearby known point is refused
 
@@ -143,6 +148,11 @@ The mounted phone SHALL treat the direction through the screen (the back of the 
 
 - **WHEN** elevation is calibrated at the reference and the player then lowers the tube
 - **THEN** the calibrated elevation decreases below the reference instead of sticking at 60 degrees
+
+#### Scenario: Heading stays forward below the horizon
+
+- **WHEN** the phone’s top edge dips a few degrees below horizontal
+- **THEN** the firing azimuth stays forward instead of reversing 180 degrees
 
 ### Requirement: Range is a linear function of elevation
 
