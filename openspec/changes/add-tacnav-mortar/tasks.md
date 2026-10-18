@@ -74,7 +74,7 @@
 
 - [ ] 8.1 Build the primary English firing screen with server/session state, GPS accuracy, true heading, elevation, calculated range, fire control, acoustic ready control, concurrent flight countdowns, and mode selectors shown only when multiple allowed choices exist; verify one-mode and multi-mode UI states.
 - [ ] 8.2 Implement free and precise-coordinate guidance for required bearing/elevation, live numeric turn/tilt correction, predicted impact, miss offset, and out-of-range indication; verify firing while misaligned still uses actual sensors.
-- [ ] 8.3 Implement approximate-coordinate guidance with pre-shot direction-only/in-zone feedback and post-shot exact left-right/add-drop metres; verify no exact magnitude or predicted coordinate leaks before firing and a shot outside the zone remains valid.
+- [ ] 8.3 Implement approximate-coordinate guidance that withholds the correction until landing and then shows exact left-right/add-drop metres; verify no correction leaks before impact and a shot outside the zone remains valid.
 - [ ] 8.4 Implement settings screens for all reference gameplay fields, firing/aiming checkbox lists, sound controls, approximate radius, elevation reference, current context, icon, and PIN plus separate quick calibration screens; verify protected settings remain local and reactivation resets them.
 - [ ] 8.5 Add local diagnostic/history visibility for pending/resolved shots, sensor snapshots, search results, probability/roll, and delivery state sufficient to troubleshoot retries; verify private bearer values are never displayed or logged.
 

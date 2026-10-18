@@ -79,7 +79,12 @@ The PIN-authorized impact-icon setting SHALL fetch the complete site icon catalo
 
 ### Requirement: Active game mode keeps required work foreground
 
-The player SHALL explicitly start and stop an active game session from a separate initiation screen whose primary control is “Prepare for battle”. The session screen SHALL show GPS accuracy at the top left and range at the top right as numbers only, a large aiming readout, the fire control, a stand-down control that returns to initiation and stops the session, unprotected gameplay-settings access, and a message list that records each accepted shot and plays a shot sound. While the session is active and the activity is visible, the display SHALL stay awake without player touch. While active, Tac Nav Mortar SHALL also run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working if the player still turns the screen off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
+The player SHALL explicitly start and stop an active game session from a separate initiation screen whose primary control is “Prepare for battle”. The session screen SHALL show GPS accuracy at the top left and range at the top right as numbers only, a large aiming readout, the fire control, a stand-down control that returns to initiation and stops the session, unprotected gameplay-settings access, and a message list that records each accepted shot and plays a shot sound. The activity SHALL stay in portrait and MUST NOT auto-rotate when the phone is tilted between upright and landscape. While the session is active and the activity is visible, the display SHALL stay awake without player touch. While active, Tac Nav Mortar SHALL also run a foreground service with a persistent notification and keep pending shots, location acquisition, and an armed acoustic trigger working if the player still turns the screen off, subject to Android permissions and force-stop behavior. Restarting the phone MUST NOT silently re-arm the microphone; the player SHALL start a new active session.
+
+#### Scenario: Display stays portrait
+
+- **WHEN** the player tilts the phone between upright and landscape
+- **THEN** the user interface remains portrait and does not auto-rotate
 
 #### Scenario: Battle mode keeps the display awake
 
@@ -316,7 +321,7 @@ Probability SHALL be 100 percent at zero distance and equal `Pedge` at the radiu
 
 ### Requirement: Entered coordinates are aiming assistance only
 
-The player SHALL be able to enter target coordinates. The application SHALL show target distance, required true bearing, required elevation from the inverse linear range function, live left-right and high-low corrections, predicted impact, and expected miss offset. It SHALL indicate when the target is outside configured range. This mode MUST NOT move the calculated impact to the entered coordinate or prevent firing before alignment; every shot SHALL still use its actual trigger-time sensor snapshot.
+The player SHALL be able to enter target coordinates. Every aiming mode SHALL show the live calibrated elevation and heading; coordinate modes MAY show those angles in a smaller type than free aiming. The application SHALL show target distance, required true bearing, required elevation from the inverse linear range function, live left-right and high-low corrections, predicted impact, and expected miss offset. It SHALL indicate when the target is outside configured range. This mode MUST NOT move the calculated impact to the entered coordinate or prevent firing before alignment; every shot SHALL still use its actual trigger-time sensor snapshot.
 
 #### Scenario: Player fires while misaligned
 
@@ -342,6 +347,11 @@ The PIN-authorized aiming-mode setting SHALL present checkboxes for free aiming,
 - **WHEN** precise and approximate coordinate guidance are both checked
 - **THEN** the player can switch between those two modes without entering the PIN
 
+#### Scenario: Live angles remain visible
+
+- **WHEN** the player uses precise or approximate coordinate guidance
+- **THEN** the session still shows the live calibrated elevation and heading in a smaller type
+
 #### Scenario: Empty aiming list is refused
 
 - **WHEN** a PIN-authorized user tries to save with no aiming mode checked
@@ -349,16 +359,16 @@ The PIN-authorized aiming-mode setting SHALL present checkboxes for free aiming,
 
 ### Requirement: Approximate coordinate guidance withholds exact pre-shot correction
 
-Approximate-coordinate guidance SHALL accept target coordinates but, before a shot, SHALL show only `LEFT`, `RIGHT`, `ADD`, or `DROP` direction and whether the predicted impact lies within the configured guidance radius, defaulting to 30 metres. It MUST NOT show the exact correction distance, exact predicted impact coordinate, or exact miss distance before the shot. After a shot is accepted, it SHALL calculate from that shot’s actual predicted impact and show the exact left-right and add-drop correction in metres. Approximate guidance MUST NOT alter the shot coordinate, block firing outside the guidance radius, or change later hit resolution.
+Approximate-coordinate guidance SHALL accept target coordinates but MUST NOT show a left-right or add-drop correction until that shot has landed. It MUST NOT show the exact correction distance, exact predicted impact coordinate, or exact miss distance before landing. After the shot is no longer in flight, it SHALL calculate from that shot’s actual predicted impact and show the exact left-right and add-drop correction in metres. Approximate guidance MUST NOT alter the shot coordinate, block firing outside the guidance radius, or change later hit resolution.
 
-#### Scenario: Before firing only coarse direction is shown
+#### Scenario: Before landing no correction is shown
 
-- **WHEN** a player enters target coordinates in approximate mode and has not fired
-- **THEN** the application shows coarse correction direction and in-zone status without an exact correction distance
+- **WHEN** a player enters target coordinates in approximate mode and has not yet had a landed shot
+- **THEN** the application withholds the correction until impact
 
-#### Scenario: After firing exact correction is shown
+#### Scenario: After landing exact correction is shown
 
-- **WHEN** the player fires in approximate mode
+- **WHEN** a shot in approximate mode has landed
 - **THEN** the application shows the exact metres left or right and add or drop needed from that shot’s predicted impact
 
 #### Scenario: Approximate mode does not control the impact

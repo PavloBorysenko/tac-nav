@@ -148,9 +148,9 @@ Because a steel tube 8–10 cm away can cause heading-dependent distortion rathe
 
 ### 12. Aiming modes change guidance but never control the impact
 
-Free aiming displays live pose, range, and predicted impact without a coordinate target. Precise-coordinate guidance converts entered coordinates to target distance/bearing and inverse-linear required elevation, then displays numeric turn, tilt, predicted impact, and miss offset.
+Free aiming displays live pose, range, and predicted impact without a coordinate target. Precise-coordinate and approximate-coordinate guidance still show the live calibrated elevation and heading in a smaller type. Precise-coordinate guidance converts entered coordinates to target distance/bearing and inverse-linear required elevation, then displays numeric turn, tilt, predicted impact, and miss offset.
 
-Approximate-coordinate guidance uses a protected radius initially set to 30 metres. Before firing it projects the live predicted impact and target into a local tangent plane, exposes only the correction signs (`LEFT`, `RIGHT`, `ADD`, `DROP`) and inside/outside-zone state, and withholds coordinates and magnitudes. After an accepted shot it freezes that shot’s predicted impact, resolves the same local cross-range and along-range components, and reveals their metre magnitudes. All aiming modes use the same actual sensor snapshot and none gates firing or substitutes the entered point.
+Approximate-coordinate guidance uses a protected radius initially set to 30 metres. It withholds the correction until the latest non-failed shot has landed, then freezes that shot’s predicted impact, resolves the local cross-range and along-range components, and shows `LEFT`/`RIGHT`, `ADD`/`DROP`, and their metre magnitudes. All aiming modes use the same actual sensor snapshot and none gates firing or substitutes the entered point.
 
 ### 13. Signing and release ownership stay outside WordPress
 

@@ -2,6 +2,7 @@ package com.tacnav.mortar
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.location.Location
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -101,6 +102,7 @@ class MainActivity : ComponentActivity() {
         get() = (application as MortarApplication).repository
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
         setContent {
             TacNavTheme {
@@ -721,9 +723,23 @@ private fun AimingReadout(
             }
             AimingMode.PRECISE_COORDINATES,
             AimingMode.APPROXIMATE_COORDINATES,
-            -> CoordinateAiming(state, location, pose, shots)
+            -> {
+                CoordinateAiming(state, location, pose, shots)
+                LiveAngles(pose, compact = true)
+            }
         }
     }
+}
+
+@Composable
+private fun LiveAngles(pose: LivePose, compact: Boolean) {
+    val elevation = pose.calibratedElevation?.toInt()?.let { "$it°" } ?: "—"
+    val heading = pose.calibratedHeading?.toInt()?.let { "$it°" } ?: "—"
+    Text(
+        "$elevation   heading $heading",
+        fontSize = if (compact) 16.sp else 20.sp,
+        color = Ink,
+    )
 }
 
 @Composable
@@ -776,19 +792,22 @@ private fun CoordinateAiming(
         )
     } else {
         val latest = shots.lastOrNull { it.phase != ShotPhase.FAILED }
-        val origin = if (latest != null) {
-            snapshot.copy(
-                latitude = latest.snapshot.latitude,
-                longitude = latest.snapshot.longitude,
-                trueHeadingDegrees = latest.snapshot.trueHeadingDegrees,
-                elevationDegrees = latest.snapshot.elevationDegrees,
+        val landed = latest?.takeIf { it.phase != ShotPhase.IN_FLIGHT }
+        if (landed == null) {
+            Text(
+                if (latest != null) "Waiting for impact." else "Fire to see the correction.",
+                fontSize = 22.sp,
+                color = Ink,
             )
         } else {
-            snapshot
-        }
-        val guidance = GuidanceMath.approximate(origin, target, state.settings, latest != null)
-        Text("${guidance.leftRight} / ${guidance.addDrop}", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
-        if (latest != null) {
+            val origin = snapshot.copy(
+                latitude = landed.snapshot.latitude,
+                longitude = landed.snapshot.longitude,
+                trueHeadingDegrees = landed.snapshot.trueHeadingDegrees,
+                elevationDegrees = landed.snapshot.elevationDegrees,
+            )
+            val guidance = GuidanceMath.approximate(origin, target, state.settings, revealMetres = true)
+            Text("${guidance.leftRight} / ${guidance.addDrop}", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
             Text(
                 "${guidance.crossMetres?.toInt()} m / ${guidance.alongMetres?.toInt()} m",
                 fontSize = 22.sp,
