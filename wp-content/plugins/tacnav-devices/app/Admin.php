@@ -109,6 +109,12 @@ class Admin {
 		}
 		self::scripts();
 		wp_enqueue_script( 'tacnav-devices-admin' );
+		wp_enqueue_style(
+			'tacnav-devices-activation',
+			TACNAV_DEVICES_URL . 'assets/activation.css',
+			array(),
+			TACNAV_DEVICES_VERSION
+		);
 		$release = self::release_metadata();
 		$payload = wp_json_encode(
 			array(
