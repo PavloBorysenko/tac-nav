@@ -30,3 +30,7 @@ schema: spec-driven
 #     archive:
 #       guidance:
 #         - Summarize the archive outcome before finishing
+
+rules:
+  tasks:
+    - "harness-task-rules: tasks.md lists implementation steps. Do not add browser, screenshot, viewport, or click-through tasks. UI check is one wp-browser-sensor pass after green gates, owned by wp-agent-harness. Specs state observable behavior and do not prescribe the browser procedure."
