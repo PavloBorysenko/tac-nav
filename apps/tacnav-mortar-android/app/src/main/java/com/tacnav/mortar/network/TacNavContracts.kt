@@ -62,6 +62,15 @@ data class MailboxDelivery(
     val deliveryReference: String,
     val eventType: String,
     val opaquePayload: Map<String, Any?>,
+    val recipientObjectId: Long = 0,
+    val sourceApplicationId: Long = 0,
+    val sourceTeamId: Long = 0,
+    val clientEventId: String = "",
+)
+
+/** The bearer was revoked or replaced by a newer activation of this application. */
+class AuthorizationLostException : java.io.IOException(
+    "This phone's activation was revoked or replaced. Reactivate it with a new staff code.",
 )
 
 interface GeoObjectApi {

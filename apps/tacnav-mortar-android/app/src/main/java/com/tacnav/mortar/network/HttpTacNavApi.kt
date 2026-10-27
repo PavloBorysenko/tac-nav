@@ -33,9 +33,7 @@ class HttpTacNavApi(
                 .post(body)
                 .build(),
         )
-        if (response.code !in 200..299) {
-            throw IOException("Search failed (${response.code}).")
-        }
+        response.requireSuccess("Search failed")
         val results = parseArray(response.body, "results")
         return List(results.length()) { index ->
             val item = results.getJSONObject(index)
@@ -68,9 +66,7 @@ class HttpTacNavApi(
                 .post(body)
                 .build(),
         )
-        if (response.code !in 200..299) {
-            throw IOException("Impact marker could not be created (${response.code}).")
-        }
+        response.requireSuccess("Impact marker could not be created")
         return createdObject(response.body, request)
     }
 
@@ -90,9 +86,7 @@ class HttpTacNavApi(
                 .put(body)
                 .build(),
         )
-        if (response.code !in 200..299) {
-            throw IOException("Object could not be updated (${response.code}).")
-        }
+        response.requireSuccess("Object could not be updated")
         return createdObject(response.body, request)
     }
 
@@ -116,9 +110,7 @@ class HttpTacNavApi(
         val response = client.execute(
             authorized("/wp-json/tacnav-devices/v1/events").post(body).build(),
         )
-        if (response.code !in 200..299) {
-            throw IOException("Hit delivery failed (${response.code}).")
-        }
+        response.requireSuccess("Hit delivery failed")
     }
 
     override suspend fun inbox(afterCursor: Long?): List<MailboxDelivery> {
@@ -127,17 +119,19 @@ class HttpTacNavApi(
             if (afterCursor != null) append("?cursor=$afterCursor")
         }
         val response = client.execute(authorized(url).get().build())
-        if (response.code !in 200..299) {
-            throw IOException("Inbox request failed (${response.code}).")
-        }
+        response.requireSuccess("Inbox request failed")
         val items = parseArray(response.body, "items")
         return List(items.length()) { index ->
             val item = items.getJSONObject(index)
             MailboxDelivery(
-                cursor = item.optLong("id", item.optLong("cursor")),
-                deliveryReference = item.optString("id", item.optString("delivery_reference")),
-                eventType = item.optString("event_type", item.optString("type")),
-                opaquePayload = emptyMap(),
+                cursor = item.getLong("id"),
+                deliveryReference = item.getLong("id").toString(),
+                eventType = item.optString("event_type"),
+                opaquePayload = item.optJSONObject("payload")?.let(::mapValue) ?: emptyMap(),
+                recipientObjectId = item.optLong("recipient_object_id"),
+                sourceApplicationId = item.optLong("source_application_id"),
+                sourceTeamId = item.optLong("source_team_id"),
+                clientEventId = item.optString("client_event_id"),
             )
         }
     }
@@ -150,9 +144,24 @@ class HttpTacNavApi(
         val response = client.execute(
             authorized("/wp-json/tacnav-devices/v1/inbox/ack").post(body).build(),
         )
-        if (response.code !in 200..299) {
-            throw IOException("Acknowledgement failed (${response.code}).")
+        response.requireSuccess("Acknowledgement failed")
+    }
+
+    private fun TextResponse.requireSuccess(failure: String) {
+        if (code == 401) {
+            throw AuthorizationLostException()
         }
+        if (code !in 200..299) throw IOException("$failure ($code).")
+    }
+
+    private fun mapValue(value: JSONObject): Map<String, Any?> =
+        value.keys().asSequence().associateWith { key -> plainValue(value.opt(key)) }
+
+    private fun plainValue(value: Any?): Any? = when (value) {
+        JSONObject.NULL, null -> null
+        is JSONObject -> mapValue(value)
+        is JSONArray -> List(value.length()) { plainValue(value.opt(it)) }
+        else -> value
     }
 
     private fun authorized(path: String): Request.Builder {

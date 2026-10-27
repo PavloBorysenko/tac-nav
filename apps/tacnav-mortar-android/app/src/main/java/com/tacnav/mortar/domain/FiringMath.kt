@@ -19,6 +19,8 @@ data class SensorSnapshot(
     val trueHeadingDegrees: Double,
     val elevationDegrees: Double,
     val triggerEpochMillis: Long,
+    // Live-only gate input; not persisted with a shot.
+    val compassReliable: Boolean = true,
 )
 
 sealed interface ShotBlock {
@@ -72,6 +74,17 @@ data class PreciseGuidance(
     val turnMetres: Double,
     val alongMetres: Double,
     val outOfRange: Boolean,
+    val predictedImpact: Coordinate? = null,
+    val missMetres: Double? = null,
+)
+
+data class LandedCorrection(
+    val leftRight: String,
+    val addDrop: String,
+    val crossMetres: Double,
+    val alongMetres: Double,
+    val missMetres: Double,
+    val inZone: Boolean,
 )
 
 data class ApproximateGuidance(
@@ -83,6 +96,24 @@ data class ApproximateGuidance(
 )
 
 object Ballistics {
+    const val ENDPOINT_TOLERANCE_DEGREES = 0.5
+
+    /**
+     * Elevation used for validation and range: sensor jitter of up to
+     * [ENDPOINT_TOLERANCE_DEGREES] past either endpoint snaps to that endpoint;
+     * anything further is outside the firing range (null).
+     */
+    fun effectiveElevation(elevationDegrees: Double, settings: GameplaySettings): Double? {
+        val min = settings.minElevationDegrees
+        val max = settings.maxElevationDegrees
+        if (elevationDegrees < min - ENDPOINT_TOLERANCE_DEGREES ||
+            elevationDegrees > max + ENDPOINT_TOLERANCE_DEGREES
+        ) {
+            return null
+        }
+        return elevationDegrees.coerceIn(min, max)
+    }
+
     fun rangeMetres(elevationDegrees: Double, settings: GameplaySettings): Double {
         if (elevationDegrees < settings.minElevationDegrees ||
             elevationDegrees > settings.maxElevationDegrees
@@ -116,18 +147,18 @@ object SensorGate {
         if (snapshot.ageSeconds > settings.maxLocationAgeSeconds) {
             return BlockedShot("GPS fix is too old.")
         }
-        if (snapshot.elevationDegrees < settings.minElevationDegrees ||
-            snapshot.elevationDegrees > settings.maxElevationDegrees
-        ) {
-            return BlockedShot("Elevation is outside the firing range.")
-        }
+        val elevation = Ballistics.effectiveElevation(snapshot.elevationDegrees, settings)
+            ?: return BlockedShot("Elevation is outside the firing range.")
         if (!snapshot.latitude.isFinite() || !snapshot.longitude.isFinite()) {
             return BlockedShot("Location is unavailable.")
         }
         if (!snapshot.trueHeadingDegrees.isFinite()) {
             return BlockedShot("Heading is unavailable.")
         }
-        val range = Ballistics.rangeMetres(snapshot.elevationDegrees, settings)
+        if (!snapshot.compassReliable) {
+            return BlockedShot("Compass accuracy is unreliable. Move away from metal and recalibrate.")
+        }
+        val range = Ballistics.rangeMetres(elevation, settings)
         return ValidShot(snapshot, range)
     }
 }
@@ -198,6 +229,12 @@ object Geodesy {
         val along = north * cos(heading) + east * sin(heading)
         val cross = east * cos(heading) - north * sin(heading)
         return cross to along
+    }
+
+    /** Magnetic to true north; a missing location means no declination is applied. */
+    fun trueHeading(magneticDegrees: Double, declinationDegrees: Double?): Double? {
+        if (!magneticDegrees.isFinite()) return null
+        return normalizeBearing(magneticDegrees + (declinationDegrees ?: 0.0))
     }
 
     fun normalizeBearing(value: Double): Double {
@@ -464,6 +501,7 @@ object GuidanceMath {
             predicted.latitude,
             predicted.longitude,
         ).second
+        val inRange = Ballistics.effectiveElevation(origin.elevationDegrees, settings) != null
         return PreciseGuidance(
             targetDistanceMetres = distance,
             requiredBearingDegrees = bearing,
@@ -474,6 +512,56 @@ object GuidanceMath {
             alongMetres = kotlin.math.abs(along - predictedAlong),
             outOfRange = distance < settings.minDistanceMetres ||
                 distance > settings.maxDistanceMetres,
+            predictedImpact = predicted.takeIf { inRange },
+            missMetres = if (inRange) {
+                Geodesy.distanceMetres(
+                    predicted.latitude,
+                    predicted.longitude,
+                    target.latitude,
+                    target.longitude,
+                )
+            } else {
+                null
+            },
+        )
+    }
+
+    /** Exact correction from a landed shot's own impact, in that shot's firing frame. */
+    fun afterLanding(
+        shot: ShotRecord,
+        target: Coordinate,
+        settings: GameplaySettings,
+    ): LandedCorrection {
+        val origin = shot.snapshot
+        val (targetCross, targetAlong) = Geodesy.localOffset(
+            origin.latitude,
+            origin.longitude,
+            origin.trueHeadingDegrees,
+            target.latitude,
+            target.longitude,
+        )
+        val (impactCross, impactAlong) = Geodesy.localOffset(
+            origin.latitude,
+            origin.longitude,
+            origin.trueHeadingDegrees,
+            shot.impactLatitude,
+            shot.impactLongitude,
+        )
+        val cross = targetCross - impactCross
+        val along = targetAlong - impactAlong
+        val miss = Geodesy.distanceMetres(
+            shot.impactLatitude,
+            shot.impactLongitude,
+            target.latitude,
+            target.longitude,
+        )
+        return LandedCorrection(
+            leftRight = if (cross < 0) "LEFT" else "RIGHT",
+            addDrop = if (along > 0) "ADD" else "DROP",
+            crossMetres = kotlin.math.abs(cross),
+            alongMetres = kotlin.math.abs(along),
+            missMetres = miss,
+            inZone = miss <= settings.approximateRadiusMetres,
         )
     }
 

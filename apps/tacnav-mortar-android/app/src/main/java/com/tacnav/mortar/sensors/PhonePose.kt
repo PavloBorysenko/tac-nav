@@ -17,6 +17,7 @@ data class LivePose(
     val calibratedHeading: Double? = null,
     val calibratedElevation: Double? = null,
     val quality: String = "Unavailable",
+    val compassReliable: Boolean = false,
 )
 
 class PhonePose(
@@ -66,21 +67,15 @@ class PhonePose(
             else -> "Unreliable"
         }
         val current = location
-        val declination = if (current != null) {
+        val declination = current?.let {
             GeomagneticField(
-                current.latitude.toFloat(),
-                current.longitude.toFloat(),
-                current.altitude.toFloat(),
-                current.time,
+                it.latitude.toFloat(),
+                it.longitude.toFloat(),
+                it.altitude.toFloat(),
+                it.time,
             ).declination.toDouble()
-        } else {
-            0.0
         }
-        val trueHeading = if (magnetic.isFinite()) {
-            Geodesy.normalizeBearing(magnetic + declination)
-        } else {
-            null
-        }
+        val trueHeading = Geodesy.trueHeading(magnetic, declination)
         pose = LivePose(
             magneticHeading = magnetic.takeIf { it.isFinite() },
             trueHeading = trueHeading,
@@ -93,6 +88,7 @@ class PhonePose(
                 calibration.elevationOffsetDegrees,
             ),
             quality = quality,
+            compassReliable = accuracy >= SensorManager.SENSOR_STATUS_ACCURACY_LOW,
         )
     }
 

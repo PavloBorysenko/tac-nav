@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,9 +57,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import coil3.compose.AsyncImage
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.messaging.FirebaseMessaging
 import com.tacnav.mortar.activation.ActivationPayload
 import com.tacnav.mortar.activation.ActivationPayloadParser
@@ -78,12 +82,16 @@ import com.tacnav.mortar.domain.SensorSnapshot
 import com.tacnav.mortar.domain.ShotPhase
 import com.tacnav.mortar.domain.ShotRecord
 import com.tacnav.mortar.network.Coordinate
+import com.tacnav.mortar.network.MailboxDelivery
 import com.tacnav.mortar.sensors.LivePose
 import com.tacnav.mortar.sensors.LocationAge
 import com.tacnav.mortar.security.CalibrationState
 import com.tacnav.mortar.security.LocalState
 import com.tacnav.mortar.security.PinAttempt
 import com.tacnav.mortar.session.FiringSessionService
+import com.tacnav.mortar.session.PermissionPolicy
+import com.tacnav.mortar.session.PermissionState
+import com.tacnav.mortar.ui.Diagnostics
 import com.tacnav.mortar.ui.Ink
 import com.tacnav.mortar.ui.Ivory
 import com.tacnav.mortar.ui.Olive
@@ -95,11 +103,32 @@ import com.tacnav.mortar.ui.primaryButtonColors
 import com.tacnav.mortar.ui.radioColors
 import com.tacnav.mortar.ui.secondaryButtonColors
 import com.tacnav.mortar.ui.textButtonColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val repository: MortarRepository
         get() = (application as MortarApplication).repository
+
+    private val app: MortarApplication
+        get() = application as MortarApplication
+
+    private val sessionPermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        val state = permissionState()
+        refreshPermissionWarnings(state)
+        if (PermissionPolicy.canStartSession(state)) {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, FiringSessionService::class.java),
+            )
+        } else {
+            app.publishError(
+                PermissionPolicy.sessionWarnings(state, currentFiringModes()).joinToString(" "),
+            )
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -107,12 +136,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             TacNavTheme {
                 val state by repository.state.collectAsState()
-                val app = application as MortarApplication
                 val shots by app.shots.collectAsState()
                 val sessionError by app.sessionError.collectAsState()
                 val acousticLevel by app.acousticLevel.collectAsState()
                 val location by app.location.collectAsState()
                 val pose by app.pose.collectAsState()
+                val online by app.online.collectAsState()
+                val deliveries by app.deliveries.collectAsState()
+                val warnings by app.permissionWarnings.collectAsState()
                 MortarApp(
                     state = state,
                     repository = repository,
@@ -121,58 +152,95 @@ class MainActivity : ComponentActivity() {
                     acousticLevel = acousticLevel,
                     location = location,
                     pose = pose,
+                    online = online,
+                    deliveries = deliveries,
+                    permissionWarnings = warnings,
                     onActivate = ::activate,
                     onStartSession = ::startSession,
                     onStopSession = ::stopSession,
                     onFire = ::fire,
                     onArm = ::armAcoustic,
                     onGiveDirection = ::giveDirection,
+                    onReactivate = ::reactivate,
                 )
             }
         }
         if (repository.state.value != null) registerCurrentFcmToken()
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshPermissionWarnings(permissionState())
+        val current = repository.state.value ?: return
+        current.pendingFcmToken?.let { token ->
+            lifecycleScope.launch { runCatching { repository.registerFcmToken(token) } }
+        }
+        app.syncMailbox()
+    }
+
     private fun activate(
         payload: ActivationPayload,
         onFinished: (String?) -> Unit,
     ) {
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { tokenTask ->
-            lifecycleScope.launch {
-                runCatching {
-                    repository.activate(payload, tokenTask.result)
-                }.onSuccess {
-                    onFinished(null)
-                    registerNotifications()
-                }.onFailure {
-                    onFinished(it.message ?: getString(R.string.activation_invalid))
+        val tokenTask = runCatching { FirebaseMessaging.getInstance().token }.getOrNull()
+        if (tokenTask == null) {
+            completeActivation(payload, null, onFinished)
+            return
+        }
+        tokenTask.addOnCompleteListener { task ->
+            // A missing Play Services token must not block activation; onNewToken
+            // or the next resume registers it later.
+            val token = if (task.isSuccessful) task.result else null
+            completeActivation(payload, token, onFinished)
+        }
+    }
+
+    private fun completeActivation(
+        payload: ActivationPayload,
+        token: String?,
+        onFinished: (String?) -> Unit,
+    ) {
+        lifecycleScope.launch {
+            runCatching {
+                repository.activate(payload, null)
+            }.onSuccess {
+                app.resetLocalSession()
+                onFinished(null)
+                if (!token.isNullOrBlank()) {
+                    runCatching { repository.registerFcmToken(token) }
                 }
+                registerNotifications()
+            }.onFailure {
+                onFinished(it.message ?: getString(R.string.activation_invalid))
             }
         }
+    }
+
+    private fun reactivate() {
+        stopSession()
+        app.resetLocalSession()
+        repository.logout()
     }
 
     private fun registerCurrentFcmToken() {
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            lifecycleScope.launch {
-                runCatching { repository.registerFcmToken(token) }
+        runCatching { FirebaseMessaging.getInstance().token }.getOrNull()
+            ?.addOnSuccessListener { token ->
+                lifecycleScope.launch {
+                    runCatching { repository.registerFcmToken(token) }
+                }
             }
-        }
     }
 
     private fun startSession() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ),
-            SESSION_PERMISSION_REQUEST,
-        )
-        ContextCompat.startForegroundService(
-            this,
-            Intent(this, FiringSessionService::class.java),
-        )
+        val permissions = buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            add(Manifest.permission.RECORD_AUDIO)
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        sessionPermissions.launch(permissions.toTypedArray())
     }
 
     private fun stopSession() {
@@ -203,7 +271,6 @@ class MainActivity : ComponentActivity() {
         accuracyMetres: Double,
     ): Double {
         val current = repository.state.value ?: error("Not activated.")
-        val app = application as MortarApplication
         app.bindApi()
         return app.firingEngine.publishDirectionLine(
             latitude,
@@ -214,6 +281,28 @@ class MainActivity : ComponentActivity() {
             current.context,
         )
     }
+
+    private fun permissionState(): PermissionState = PermissionState(
+        preciseLocation = granted(Manifest.permission.ACCESS_FINE_LOCATION),
+        microphone = granted(Manifest.permission.RECORD_AUDIO),
+        camera = granted(Manifest.permission.CAMERA),
+        notifications = NotificationManagerCompat.from(this).areNotificationsEnabled(),
+        playServices = GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(this) == ConnectionResult.SUCCESS,
+    )
+
+    private fun refreshPermissionWarnings(state: PermissionState) {
+        app.publishPermissionWarnings(
+            PermissionPolicy.sessionWarnings(state, currentFiringModes()),
+        )
+    }
+
+    private fun currentFiringModes(): Set<FiringMode> =
+        repository.state.value?.settings?.firingModes ?: emptySet()
+
+    private fun granted(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
 
     private fun registerNotifications() {
         if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -227,7 +316,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val NOTIFICATION_PERMISSION_REQUEST = 37
-        const val SESSION_PERMISSION_REQUEST = 38
     }
 }
 
@@ -237,6 +325,7 @@ private enum class Screen {
     GAMEPLAY,
     PROTECTED,
     COMPASS,
+    DIAGNOSTICS,
 }
 
 @Composable
@@ -248,12 +337,16 @@ fun MortarApp(
     acousticLevel: Double = -120.0,
     location: Location? = null,
     pose: LivePose = LivePose(),
+    online: Boolean = true,
+    deliveries: List<MailboxDelivery> = emptyList(),
+    permissionWarnings: List<String> = emptyList(),
     onActivate: (ActivationPayload, (String?) -> Unit) -> Unit,
     onStartSession: () -> Unit = {},
     onStopSession: () -> Unit = {},
     onFire: () -> Unit = {},
     onArm: () -> Unit = {},
     onGiveDirection: suspend (Double, Double, Double, Double) -> Double = { _, _, heading, _ -> heading },
+    onReactivate: () -> Unit = repository::logout,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.INITIATION) }
     var settingsReturn by rememberSaveable { mutableStateOf(Screen.INITIATION) }
@@ -276,19 +369,19 @@ fun MortarApp(
     when (screen) {
         Screen.INITIATION -> InitiationScreen(
             state = state,
-            onDeploy = {
-                onStartSession()
-                screen = Screen.SESSION
-            },
+            warnings = permissionWarnings,
+            sessionError = sessionError,
+            onDeploy = onStartSession,
             onOpenGameplay = {
                 settingsReturn = Screen.INITIATION
                 screen = Screen.GAMEPLAY
             },
-            onReactivate = repository::logout,
+            onReactivate = onReactivate,
             onOpenProtected = {
                 settingsReturn = Screen.INITIATION
                 screen = Screen.PROTECTED
             },
+            onOpenDiagnostics = { screen = Screen.DIAGNOSTICS },
         )
         Screen.SESSION -> SessionScreen(
             state = state,
@@ -297,6 +390,10 @@ fun MortarApp(
             acousticLevel = acousticLevel,
             location = location,
             pose = pose,
+            online = online,
+            deliveries = deliveries,
+            warnings = permissionWarnings,
+            onSelectModes = repository::selectPlayerModes,
             calibrationNote = calibrationNote,
             onEndSession = {
                 onStopSession()
@@ -357,6 +454,13 @@ fun MortarApp(
                 screen = Screen.SESSION
             },
             onBack = { screen = Screen.SESSION },
+        )
+        Screen.DIAGNOSTICS -> DiagnosticsScreen(
+            shots = shots,
+            deliveries = deliveries,
+            online = online,
+            pendingFcmToken = state.pendingFcmToken != null,
+            onBack = { screen = Screen.INITIATION },
         )
     }
 }
@@ -465,13 +569,45 @@ fun ActivationScreen(
 @Composable
 fun InitiationScreen(
     state: LocalState,
+    warnings: List<String> = emptyList(),
+    sessionError: String? = null,
     onDeploy: () -> Unit,
     onOpenGameplay: () -> Unit,
     onReactivate: () -> Unit,
     onOpenProtected: () -> Unit,
+    onOpenDiagnostics: () -> Unit = {},
 ) {
     val map = state.activation.maps.single { it.id == state.context.mapId }
     val team = map.teams.single { it.id == state.context.teamId }
+    var confirmReactivate by rememberSaveable { mutableStateOf(false) }
+    if (confirmReactivate) {
+        AlertDialog(
+            onDismissRequest = { confirmReactivate = false },
+            title = { Text("Reactivate this phone?") },
+            text = {
+                Text(
+                    "Reactivation erases local settings, calibration, the PIN, and pending shots. " +
+                        "You will need a new staff QR or one-time code.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReactivate = false
+                        onReactivate()
+                    },
+                    colors = textButtonColors(),
+                    modifier = Modifier.testTag("confirm-reactivate"),
+                ) { Text("Erase and reactivate") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmReactivate = false },
+                    colors = textButtonColors(),
+                ) { Text("Cancel") }
+            },
+        )
+    }
     TacNavChrome {
         Column(
             modifier = Modifier
@@ -507,6 +643,10 @@ fun InitiationScreen(
                     fontSize = 16.sp,
                 )
             }
+            Spacer(Modifier.height(16.dp))
+            (warnings + listOfNotNull(sessionError)).distinct().forEach {
+                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 14.sp)
+            }
             Spacer(Modifier.weight(1f))
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Button(
@@ -527,9 +667,11 @@ fun InitiationScreen(
                         .testTag("gameplay-settings"),
                 ) { Text("Gameplay settings") }
                 OutlinedButton(
-                    onClick = onReactivate,
+                    onClick = { confirmReactivate = true },
                     colors = secondaryButtonColors(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reactivate"),
                 ) {
                     Text("Reactivate")
                 }
@@ -540,6 +682,13 @@ fun InitiationScreen(
                         .fillMaxWidth()
                         .testTag("settings"),
                 ) { Text("Protected settings") }
+                TextButton(
+                    onClick = onOpenDiagnostics,
+                    colors = textButtonColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("diagnostics"),
+                ) { Text("Diagnostics") }
             }
             Spacer(Modifier.weight(0.35f))
         }
@@ -554,6 +703,10 @@ fun SessionScreen(
     acousticLevel: Double = -120.0,
     location: Location? = null,
     pose: LivePose = LivePose(),
+    online: Boolean = true,
+    deliveries: List<MailboxDelivery> = emptyList(),
+    warnings: List<String> = emptyList(),
+    onSelectModes: (FiringMode, AimingMode) -> Unit = { _, _ -> },
     onEndSession: () -> Unit,
     onFire: () -> Unit,
     onArm: () -> Unit,
@@ -563,15 +716,32 @@ fun SessionScreen(
     onOpenGameplay: () -> Unit,
     calibrationNote: String? = null,
 ) {
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(500)
+        }
+    }
     val elevation = pose.calibratedElevation
-    val range = elevation?.let {
-        runCatching { Ballistics.rangeMetres(it, state.settings) }.getOrNull()
+    val range = elevation
+        ?.let { Ballistics.effectiveElevation(it, state.settings) }
+        ?.let { Ballistics.rangeMetres(it, state.settings) }
+    val inFlight = shots.count { it.phase == ShotPhase.IN_FLIGHT }
+    val waiting = shots.count {
+        it.phase != ShotPhase.IN_FLIGHT && it.phase != ShotPhase.COMPLETED
     }
     val messages = buildList {
         shots.takeLast(6).forEach { shot ->
-            add("Shot fired · ${shot.rangeMetres.toInt()} m · ${shot.phase.name.lowercase().replace('_', ' ')}")
+            if (shot.phase == ShotPhase.IN_FLIGHT) {
+                add("Shot in flight · ${shot.rangeMetres.toInt()} m · lands in ${Diagnostics.secondsLeft(shot, now)} s")
+            } else {
+                add("Shot fired · ${shot.rangeMetres.toInt()} m · ${shot.phase.name.lowercase().replace('_', ' ')}")
+            }
             shot.failure?.let { add(it) }
         }
+        deliveries.takeLast(3).forEach { add(Diagnostics.deliveryLine(it)) }
+        addAll(warnings)
         sessionError?.let { add(it) }
         calibrationNote?.let { add(it) }
     }
@@ -595,7 +765,21 @@ fun SessionScreen(
                         fontSize = 16.sp,
                     )
                 }
-                Spacer(Modifier.height(12.dp))
+                Text(
+                    buildString {
+                        append(if (online) "Online" else "Offline")
+                        if (inFlight > 0) append(" · $inFlight in flight")
+                        if (waiting > 0) append(" · $waiting resolving")
+                        if (!pose.compassReliable) append(" · compass unreliable, recalibrate")
+                    },
+                    color = Ink.copy(alpha = 0.8f),
+                    fontSize = 13.sp,
+                    modifier = Modifier.testTag("session-status"),
+                )
+                if (state.settings.firingModes.size > 1 || state.settings.aimingModes.size > 1) {
+                    InlineModes(state, onSelectModes)
+                }
+                Spacer(Modifier.height(8.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -786,11 +970,25 @@ private fun CoordinateAiming(
         Text("${guidance.turnSign} ${guidance.turnMetres.toInt()} m", fontSize = 24.sp, color = Ink)
         Text("${guidance.tiltSign} ${guidance.alongMetres.toInt()} m", fontSize = 24.sp, color = Ink)
         Text(
-            guidance.requiredElevationDegrees?.let { "${it.toInt()}°" } ?: "out of range",
-            fontSize = 22.sp,
+            "bearing ${guidance.requiredBearingDegrees.toInt()}° · " +
+                (guidance.requiredElevationDegrees?.let { "elevation ${it.toInt()}°" } ?: "target out of range"),
+            fontSize = 18.sp,
             color = Ink,
         )
+        Text(
+            guidance.predictedImpact?.let {
+                "impact %.5f, %.5f · miss %d m".format(
+                    java.util.Locale.US,
+                    it.latitude,
+                    it.longitude,
+                    guidance.missMetres?.toInt() ?: 0,
+                )
+            } ?: "tube elevation is outside the firing range",
+            fontSize = 14.sp,
+            color = Ink.copy(alpha = 0.8f),
+        )
     } else {
+        // Approximate mode reveals nothing exact until the latest shot has landed.
         val latest = shots.lastOrNull { it.phase != ShotPhase.FAILED }
         val landed = latest?.takeIf { it.phase != ShotPhase.IN_FLIGHT }
         if (landed == null) {
@@ -800,17 +998,26 @@ private fun CoordinateAiming(
                 color = Ink,
             )
         } else {
-            val origin = snapshot.copy(
-                latitude = landed.snapshot.latitude,
-                longitude = landed.snapshot.longitude,
-                trueHeadingDegrees = landed.snapshot.trueHeadingDegrees,
-                elevationDegrees = landed.snapshot.elevationDegrees,
-            )
-            val guidance = GuidanceMath.approximate(origin, target, state.settings, revealMetres = true)
-            Text("${guidance.leftRight} / ${guidance.addDrop}", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+            val correction = GuidanceMath.afterLanding(landed, target, state.settings)
             Text(
-                "${guidance.crossMetres?.toInt()} m / ${guidance.alongMetres?.toInt()} m",
-                fontSize = 22.sp,
+                "${correction.leftRight} ${correction.crossMetres.toInt()} m",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Ink,
+            )
+            Text(
+                "${correction.addDrop} ${correction.alongMetres.toInt()} m",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Ink,
+            )
+            Text(
+                if (correction.inZone) {
+                    "inside the ${state.settings.approximateRadiusMetres.toInt()} m zone"
+                } else {
+                    "outside the ${state.settings.approximateRadiusMetres.toInt()} m zone"
+                },
+                fontSize = 16.sp,
                 color = Ink,
             )
         }
@@ -1174,6 +1381,102 @@ fun CompassCalibrationScreen(
                 },
             ) { Text("Save compass offset") }
             message?.let { Text(it, color = Ink) }
+            TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
+        }
+    }
+}
+
+@Composable
+private fun InlineModes(
+    state: LocalState,
+    onSelectModes: (FiringMode, AimingMode) -> Unit,
+) {
+    Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (state.settings.firingModes.size > 1) {
+            ModeChips(
+                values = FiringMode.entries.filter { it in state.settings.firingModes },
+                selected = state.activeFiringMode,
+                label = ::firingLabel,
+                tag = "firing-mode",
+            ) { onSelectModes(it, state.activeAimingMode) }
+        }
+        if (state.settings.aimingModes.size > 1) {
+            ModeChips(
+                values = AimingMode.entries.filter { it in state.settings.aimingModes },
+                selected = state.activeAimingMode,
+                label = ::aimingLabel,
+                tag = "aiming-mode",
+            ) { onSelectModes(state.activeFiringMode, it) }
+        }
+    }
+}
+
+@Composable
+private fun <T> ModeChips(
+    values: List<T>,
+    selected: T,
+    label: (T) -> String,
+    tag: String,
+    onSelected: (T) -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        values.forEach { value ->
+            val active = value == selected
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (active) Olive else Ivory.copy(alpha = 0.6f))
+                    .border(1.dp, Olive, RoundedCornerShape(16.dp))
+                    .clickable { onSelected(value) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .testTag("$tag-${label(value).lowercase().replace(' ', '-')}"),
+            ) {
+                Text(label(value), color = if (active) Ivory else Ink, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun DiagnosticsScreen(
+    shots: List<ShotRecord>,
+    deliveries: List<MailboxDelivery>,
+    online: Boolean,
+    pendingFcmToken: Boolean,
+    onBack: () -> Unit,
+) {
+    val now = System.currentTimeMillis()
+    TacNavChrome {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("Diagnostics", style = MaterialTheme.typography.headlineSmall, color = Ink)
+            Text(
+                "Network ${if (online) "online" else "offline"} · Firebase token " +
+                    if (pendingFcmToken) "waiting to register" else "registered or not needed",
+                color = Ink,
+            )
+            Text("Shots", style = MaterialTheme.typography.titleMedium, color = Ink)
+            if (shots.isEmpty()) Text("No shots recorded.", color = Ink)
+            shots.asReversed().forEach { shot ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Ink.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .padding(8.dp),
+                ) {
+                    Diagnostics.shotLines(shot, now).forEach { Text(it, color = Ink, fontSize = 13.sp) }
+                }
+            }
+            Text("Mailbox", style = MaterialTheme.typography.titleMedium, color = Ink)
+            if (deliveries.isEmpty()) Text("No deliveries received in this run.", color = Ink)
+            deliveries.asReversed().forEach {
+                Text(Diagnostics.deliveryLine(it), color = Ink, fontSize = 13.sp)
+            }
             TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
         }
     }

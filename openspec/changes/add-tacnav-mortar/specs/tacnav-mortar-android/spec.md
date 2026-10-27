@@ -167,6 +167,16 @@ For an elevation between configured minimum and maximum angles, the application 
 
 It SHALL calculate the impact coordinate geodesically from the captured shot origin, calibrated true heading, and calculated distance.
 
+To absorb sensor jitter, a calibrated elevation no more than 0.5 degrees below the minimum angle or above the maximum angle SHALL be treated as that endpoint for validation and range. An elevation further outside the configured angles SHALL still block the shot. The shot snapshot SHALL keep the measured elevation.
+
+#### Scenario: Jitter below the minimum uses the minimum
+- **WHEN** settings are 60 degrees to 85 degrees and the calibrated elevation reads 59.6 degrees
+- **THEN** the shot is accepted with the range for 60 degrees
+
+#### Scenario: Larger deviation still blocks
+- **WHEN** the calibrated elevation reads 59.4 degrees or 85.6 degrees
+- **THEN** the application blocks the shot because elevation is outside the firing range
+
 #### Scenario: Endpoint angles use endpoint ranges
 
 - **WHEN** settings are 60 degrees to 85 degrees and 200 metres to 10 metres

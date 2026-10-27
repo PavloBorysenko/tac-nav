@@ -27,12 +27,26 @@ class FiringEngine(
     private val mailbox: DeviceMailboxApi,
     private val random: () -> Double = { SecureRandom().nextDouble() },
     private val uuid: () -> String = { UUID.randomUUID().toString() },
+    private val onChange: (List<ShotRecord>) -> Unit = {},
 ) {
+    private val lock = Any()
     private val shots = linkedMapOf<String, ShotRecord>()
     private var ownPositionObjectId: Long? = null
     private var directionLineObjectId: Long? = null
 
-    fun currentShots(): List<ShotRecord> = shots.values.toList()
+    fun currentShots(): List<ShotRecord> = synchronized(lock) { shots.values.toList() }
+
+    // Every phase change is persisted before the next network side effect so a
+    // process death between search and delivery resumes instead of rerolling.
+    private fun store(shot: ShotRecord) {
+        val all = synchronized(lock) {
+            shots[shot.shotId] = shot
+            shots.values.toList()
+        }
+        onChange(all)
+    }
+
+    private fun stored(shotId: String): ShotRecord? = synchronized(lock) { shots[shotId] }
 
     fun accept(
         snapshot: SensorSnapshot,
@@ -57,7 +71,7 @@ class FiringEngine(
                     dueAtElapsedMillis = elapsedMillis + settings.flightDurationSeconds * 1_000,
                     dueAtEpochMillis = nowEpochMillis + settings.flightDurationSeconds * 1_000,
                 )
-                shots[shot.shotId] = shot
+                store(shot)
                 return shot
             }
             else -> error(gate.reason)
@@ -65,8 +79,19 @@ class FiringEngine(
     }
 
     fun restore(records: List<ShotRecord>) {
-        shots.clear()
-        records.forEach { shots[it.shotId] = it }
+        synchronized(lock) {
+            shots.clear()
+            records.forEach { shots[it.shotId] = it }
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            shots.clear()
+            ownPositionObjectId = null
+            directionLineObjectId = null
+        }
+        onChange(emptyList())
     }
 
     suspend fun resolveDue(
@@ -76,14 +101,14 @@ class FiringEngine(
         context: ActiveContext,
         online: Boolean,
     ) {
-        shots.values.filter { shot ->
+        currentShots().filter { shot ->
             shot.phase == ShotPhase.IN_FLIGHT &&
                 (elapsedMillis >= shot.dueAtElapsedMillis || nowEpochMillis >= shot.dueAtEpochMillis)
         }.forEach { shot ->
-            shots[shot.shotId] = shot.copy(phase = ShotPhase.DUE)
+            store(shot.copy(phase = ShotPhase.DUE))
         }
         if (!online) return
-        shots.values.filter { it.phase == ShotPhase.DUE || retryable(it.phase) }.forEach { shot ->
+        currentShots().filter { it.phase == ShotPhase.DUE || retryable(it.phase) }.forEach { shot ->
             resolveOne(shot, settings, context)
         }
     }
@@ -142,7 +167,7 @@ class FiringEngine(
                     failure = error.message ?: "Search failed.",
                 )
             }
-            shots[current.shotId] = current
+            store(current)
         }
         try {
             if (current.phase == ShotPhase.SEARCHED) {
@@ -159,8 +184,8 @@ class FiringEngine(
                         positionAccuracyMetres = current.snapshot.accuracyMetres,
                     ),
                 )
-                current = current.copy(phase = ShotPhase.IMPACT_CREATED)
-                shots[current.shotId] = current
+                current = current.copy(phase = ShotPhase.IMPACT_CREATED, failure = null)
+                store(current)
             }
             if (current.phase == ShotPhase.IMPACT_CREATED) {
                 if (current.hits.isNotEmpty()) {
@@ -193,17 +218,19 @@ class FiringEngine(
                         ),
                     )
                 }
-                current = current.copy(phase = ShotPhase.MESSAGES_SENT)
-                shots[current.shotId] = current
+                current = current.copy(phase = ShotPhase.MESSAGES_SENT, failure = null)
+                store(current)
             }
             if (current.phase == ShotPhase.MESSAGES_SENT) {
-                shots[current.shotId] = current.copy(phase = ShotPhase.COMPLETED)
+                store(current.copy(phase = ShotPhase.COMPLETED))
             }
         } catch (error: Exception) {
-            val latest = shots[shot.shotId] ?: current
-            shots[latest.shotId] = latest.copy(
-                phase = if (latest.phase == ShotPhase.DUE) ShotPhase.FAILED else latest.phase,
-                failure = error.message ?: "Resolution failed.",
+            val latest = stored(shot.shotId) ?: current
+            store(
+                latest.copy(
+                    phase = if (latest.phase == ShotPhase.DUE) ShotPhase.FAILED else latest.phase,
+                    failure = error.message ?: "Resolution failed.",
+                ),
             )
         }
     }

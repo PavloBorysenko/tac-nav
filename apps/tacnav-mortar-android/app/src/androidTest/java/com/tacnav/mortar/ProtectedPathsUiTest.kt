@@ -1,9 +1,9 @@
 package com.tacnav.mortar
 
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.tacnav.mortar.data.ProtectedResult
 import com.tacnav.mortar.domain.ActivationResult
@@ -65,7 +65,7 @@ class ProtectedPathsUiTest {
         }
 
         compose.onNodeWithTag("settings-pin").assertExists().performTextInput("4321")
-        compose.onNodeWithTag("save-protected-settings").performClick()
+        compose.onNodeWithTag("save-protected-settings").performScrollTo().performClick()
 
         assertTrue(submitted.get())
     }
