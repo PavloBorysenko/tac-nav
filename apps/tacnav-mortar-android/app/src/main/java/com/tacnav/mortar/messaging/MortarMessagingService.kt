@@ -24,7 +24,7 @@ class MortarMessagingService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val deliveryReference = message.data["delivery_reference"] ?: return
+        val deliveryReference = message.data[DATA_DELIVERY_REFERENCE] ?: return
         // The push only carries a reference; the mailbox is the source of truth.
         (application as MortarApplication).syncMailbox()
         showWakeNotification(deliveryReference)
@@ -69,6 +69,9 @@ class MortarMessagingService : FirebaseMessagingService() {
 
     companion object {
         const val EXTRA_DELIVERY_REFERENCE = "delivery_reference"
+
+        /** Data key sent by tacnav-devices `Firebase::wake_delivery()`. */
+        const val DATA_DELIVERY_REFERENCE = "delivery_ref"
         private const val CHANNEL_ID = "tacnav-deliveries"
     }
 }
