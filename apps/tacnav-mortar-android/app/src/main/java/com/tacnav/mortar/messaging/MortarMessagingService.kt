@@ -25,6 +25,8 @@ class MortarMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val deliveryReference = message.data["delivery_reference"] ?: return
+        // The push only carries a reference; the mailbox is the source of truth.
+        (application as MortarApplication).syncMailbox()
         showWakeNotification(deliveryReference)
     }
 

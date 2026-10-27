@@ -49,7 +49,7 @@ class FiringSessionService : Service() {
     private lateinit var engine: FiringEngine
     private var loop: Job? = null
     private var audio: Job? = null
-    private var torchJob: Job? = null
+    private lateinit var torch: TorchPulse
     private var lastLocation: Location? = null
     private val locationClient by lazy { LocationServices.getFusedLocationProviderClient(this) }
     private val locationCallback = object : LocationCallback() {
@@ -68,6 +68,7 @@ class FiringSessionService : Service() {
         val app = application as MortarApplication
         pose = PhonePose(getSystemService(SENSOR_SERVICE) as SensorManager)
         engine = app.firingEngine
+        torch = TorchPulse(scope, ::setTorch, onWarning = { app.publishError(it) })
         createChannel()
     }
 
@@ -88,9 +89,8 @@ class FiringSessionService : Service() {
     override fun onDestroy() {
         loop?.cancel()
         audio?.cancel()
-        torchJob?.cancel()
+        torch.stop()
         locationClient.removeLocationUpdates(locationCallback)
-        setTorch(false)
         pose.stop()
         (application as MortarApplication).repository.setSession(false)
         super.onDestroy()
@@ -103,42 +103,66 @@ class FiringSessionService : Service() {
             .setContentText(getString(R.string.session_body))
             .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        val app = application as MortarApplication
+        if (!granted(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            app.publishError(PermissionPolicy.LOCATION_DENIED)
+            stopSelf()
+            return
+        }
+        val started = runCatching {
+            if (Build.VERSION.SDK_INT >= 34) {
+                // Android 14+ refuses a microphone-typed service without the
+                // permission, so the type follows what was actually granted.
+                var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                if (granted(Manifest.permission.RECORD_AUDIO)) {
+                    types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                }
+                startForeground(NOTIFICATION_ID, notification, types)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        }
+        if (started.isFailure) {
+            app.publishError("The active session could not start. Open Tac Nav Mortar and try again.")
+            stopSelf()
+            return
         }
         pose.start()
         startLocationUpdates()
-        val app = application as MortarApplication
         app.repository.setSession(true)
         app.bindApi()
         loop?.cancel()
         loop = scope.launch {
-            val started = SystemClock.elapsedRealtime()
+            var wasOnline = false
+            var lastSync = 0L
             while (isActive) {
                 val state = app.repository.state.value
                 if (state != null) {
+                    val online = isOnline()
+                    val now = SystemClock.elapsedRealtime()
+                    app.publishOnline(online)
                     pose.updateCalibration(state.calibration)
                     engine.resolveDue(
-                        elapsedMillis = SystemClock.elapsedRealtime() - started,
+                        elapsedMillis = now,
                         nowEpochMillis = System.currentTimeMillis(),
                         settings = state.settings,
                         context = state.context,
-                        online = isOnline(),
+                        online = online,
                     )
+                    if (online && (!wasOnline || now - lastSync >= MAILBOX_SYNC_MILLIS)) {
+                        app.syncMailbox()
+                        lastSync = now
+                    }
+                    wasOnline = online
                     app.publishPose(pose.pose)
-                    app.publishShots(engine.currentShots())
                 }
                 delay(500)
             }
         }
     }
+
+    private fun granted(permission: String): Boolean =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun fire(button: Boolean) {
         val app = application as MortarApplication
@@ -159,6 +183,7 @@ class FiringSessionService : Service() {
             trueHeadingDegrees = heading,
             elevationDegrees = elevation,
             triggerEpochMillis = System.currentTimeMillis(),
+            compassReliable = live.compassReliable,
         )
         runCatching {
             engine.accept(
@@ -169,9 +194,8 @@ class FiringSessionService : Service() {
             )
         }.onSuccess { shot ->
             ShotFeedback.play(this)
-            app.publishShots(engine.currentShots())
             app.publishError(null)
-            if (button) pulseTorch()
+            if (button) torch.pulse()
             if (state.settings.markOwnPositionOnShot) {
                 scope.launch {
                     runCatching {
@@ -234,38 +258,16 @@ class FiringSessionService : Service() {
         }
     }
 
-    private fun pulseTorch() {
-        torchJob?.cancel()
-        setTorch(true)
-        torchJob = scope.launch {
-            delay(5_000)
-            setTorch(false)
-        }
-    }
-
-    private fun setTorch(enabled: Boolean) {
+    private fun setTorch(enabled: Boolean): TorchResult {
         val manager = getSystemService(CAMERA_SERVICE) as CameraManager
-        runCatching {
+        return runCatching {
             val cameraId = manager.cameraIdList.firstOrNull { id ->
                 manager.getCameraCharacteristics(id)
                     .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
-            }
-            if (cameraId == null) {
-                if (enabled) {
-                    (application as MortarApplication).publishError(
-                        "Torch is unavailable, but the shot was accepted.",
-                    )
-                }
-                return
-            }
+            } ?: return TorchResult.UNAVAILABLE
             manager.setTorchMode(cameraId, enabled)
-        }.onFailure {
-            if (enabled) {
-                (application as MortarApplication).publishError(
-                    "Torch is busy, but the shot was accepted.",
-                )
-            }
-        }
+            TorchResult.OK
+        }.getOrDefault(TorchResult.BUSY)
     }
 
     private fun startLocationUpdates() {
@@ -306,5 +308,6 @@ class FiringSessionService : Service() {
         const val ACTION_DISARM = "com.tacnav.mortar.DISARM"
         private const val CHANNEL = "tacnav_session"
         private const val NOTIFICATION_ID = 71
+        private const val MAILBOX_SYNC_MILLIS = 60_000L
     }
 }

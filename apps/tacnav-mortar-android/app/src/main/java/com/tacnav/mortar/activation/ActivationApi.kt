@@ -8,6 +8,7 @@ import com.tacnav.mortar.domain.GameplaySettings
 import com.tacnav.mortar.domain.MapScope
 import com.tacnav.mortar.domain.ServiceConfiguration
 import com.tacnav.mortar.domain.TeamScope
+import com.tacnav.mortar.network.AuthorizationLostException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -83,6 +84,7 @@ class HttpActivationApi(
             activation.services.fcmRegistrationPath,
         ).post(body).build()
         val response = client.executeForText(request)
+        if (response.code == 401) throw AuthorizationLostException()
         if (response.code !in 200..299) {
             throw IOException("Firebase registration was refused (${response.code}).")
         }
@@ -96,6 +98,7 @@ class HttpActivationApi(
             activation.services.iconCatalogPath,
         ).get().build()
         val response = client.executeForText(request)
+        if (response.code == 401) throw AuthorizationLostException()
         if (response.code !in 200..299) {
             throw IOException("Icon catalog request failed (${response.code}).")
         }

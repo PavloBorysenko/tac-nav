@@ -41,23 +41,24 @@
 ## 5. Android project and activation
 
 - [x] 5.1 Create the Kotlin Android project at `apps/tacnav-mortar-android` with application name Tac Nav Mortar, package `com.tacnav.mortar`, minimum API 28, English resources, and approved dependencies; verify debug assembly and unit tests run from a clean checkout.
-- [ ] 5.2 Add the matching `google-services.json` client configuration for Firebase project `tac-nav` and Firebase Messaging wiring; verify the debug app obtains a registration token on a Google Play Services device without containing a server private key.
-- [ ] 5.3 Convert the supplied 512px artwork into legacy, adaptive foreground/background, and monochrome launcher resources; verify Android launcher previews do not crop the N/S letters or mortar legs across masks.
-- [ ] 5.4 Implement QR scanning and manual server URL plus one-time-code activation through the same API contract; verify a valid code activates once and invalid/reused codes show English errors.
-- [ ] 5.5 Store bearer identity securely and implement logout/reactivation that clears local settings, calibration, pending service state, and old credentials; verify reactivation loads the server reference and the old phone receives authorization failure.
-- [ ] 5.6 Implement local PIN handling with default `4321`, PIN change, throttled failed attempts, and separation between protected gameplay settings and unprotected calibration/player mode selection; verify UI tests cover protected and unprotected paths.
-- [ ] 5.7 Implement locally selected map/team from activated scopes and the complete online icon picker with offline selected-icon cache; verify unallowed contexts are unavailable and icons outside the team palette can be selected.
+- [x] 5.2 Add the matching `google-services.json` client configuration for Firebase project `tac-nav` and Firebase Messaging wiring; verify the debug app obtains a registration token on a Google Play Services device without containing a server private key.
+- [x] 5.3 Convert the supplied 512px artwork into legacy, adaptive foreground/background, and monochrome launcher resources; verify Android launcher previews do not crop the N/S letters or mortar legs across masks.
+- [x] 5.4 Implement QR scanning and manual server URL plus one-time-code activation through the same API contract; verify a valid code activates once and invalid/reused codes show English errors.
+- [x] 5.5 Store bearer identity securely and implement logout/reactivation that clears local settings, calibration, pending service state, and old credentials; verify reactivation loads the server reference and the old phone receives authorization failure.
+- [x] 5.6 Implement local PIN handling with default `4321`, PIN change, throttled failed attempts, and separation between protected gameplay settings and unprotected calibration/player mode selection; verify UI tests cover protected and unprotected paths.
+- [x] 5.7 Implement locally selected map/team from activated scopes and the complete online icon picker with offline selected-icon cache; verify unallowed contexts are unavailable and icons outside the team palette can be selected.
 - [x] 5.8 Implement protected non-empty checkbox sets for button/acoustic firing and free/precise/approximate aiming plus protected approximate radius and elevation-reference angle; verify defaults are 30 metres and 60 degrees and empty sets cannot be saved.
 
 ## 6. Android sensors and active session
 
-- [ ] 6.1 Implement permission/status handling for precise location, camera, microphone, notifications, and Google Play Services; verify every denial produces the specified English degraded behavior.
+- [x] 6.1 Implement permission/status handling for precise location, camera, microphone, notifications, and Google Play Services; verify every denial produces the specified English degraded behavior.
 - [x] 6.2 Implement current location with configurable maximum horizontal error and age; verify unit/UI tests block an 18-metre fix at a 10-metre threshold and block a fix older than five seconds.
-- [ ] 6.3 Implement fused orientation, geomagnetic true-north correction, phone-axis convention, sensor-quality reporting, and known-point yaw calibration; verify deterministic sensor tests apply declination and saved offsets correctly.
+- [x] 6.3 Implement fused orientation, geomagnetic true-north correction, phone-axis convention, sensor-quality reporting, and known-point yaw calibration; verify deterministic sensor tests apply declination and saved offsets correctly.
 - [x] 6.4 Implement one-action elevation calibration against the protected reference angle, defaulting to 60 degrees, and linear angle-to-range/inverse-range functions; verify offset, endpoint, and intermediate-angle tests.
-- [ ] 6.5 Implement the user-started foreground session service with required location/microphone types and persistent notification; verify screen-off retains an active test session and reboot does not silently arm listening.
+- [x] 6.5 Implement the user-started foreground session service with required location/microphone types and persistent notification; verify screen-off retains an active test session and reboot does not silently arm listening.
 - [x] 6.6 Implement acoustic level display, configurable dBFS threshold, impulse duration, debounce, arming, and disarming using microphone input; verify recorded/synthetic impulses produce one trigger and microphone denial leaves button firing available.
-- [ ] 6.7 Implement five-second torch feedback after an accepted button shot with deadline restart and service-stop cleanup; verify repeated shots extend the period and missing/busy torch hardware warns without cancelling the shot.
+- [x] 6.7 Implement five-second torch feedback after an accepted button shot with deadline restart and service-stop cleanup; verify repeated shots extend the period and missing/busy torch hardware warns without cancelling the shot.
+- [x] 6.9 Treat calibrated elevation within 0.5 degrees outside either firing-angle endpoint as that endpoint for validation and range while keeping the measured value in the snapshot; verify 59.6 degrees fires at the 60-degree range and 59.4 or 85.6 degrees blocks.
 - [ ] 6.8 Field-test the mounted phone 8–10 cm from the tube at multiple headings and elevations; record measured magnetic/GPS behavior and verify calibration warnings/defaults are adjusted without changing the specified firing model.
 
 ## 7. Shot state and resolution
@@ -66,21 +67,21 @@
 - [x] 7.2 Implement durable concurrent shot states and flight scheduling using monotonic in-session timing plus restart recovery; verify two overlapping shots remain independent through screen-off and process restart.
 - [x] 7.3 Implement geodesic impact calculation from captured origin, calibrated true bearing, and linear range; verify known coordinate fixtures stay within the selected numeric tolerance.
 - [x] 7.4 Implement due-shot offline queuing and connectivity recovery; verify an overdue offline shot searches positions current when connectivity returns rather than trigger-time positions.
-- [ ] 7.5 Integrate circle search before public point-impact creation with configured title, icon, visibility, and `ttl_seconds`; verify the new impact is absent from its own search and visible to all intended map viewers.
+- [x] 7.5 Integrate circle search before public point-impact creation with configured title, icon, visibility, and `ttl_seconds`; verify the new impact is absent from its own search and visible to all intended map viewers.
 - [x] 7.6 Implement local nearest-distance calculation for marker, circle, polyline, and polygon geometry plus per-object linear probability, one persisted secure random roll per shot/object, no team/type/id filtering, and local miss records; verify geometry, center, boundary, intermediate, friendly, and retry cases without relying on server `distance_m`.
-- [ ] 7.7 Submit successful recipients as one idempotent hit event with shot facts and retain retry state across partial failures; verify response loss does not reroll or duplicate a recipient delivery.
+- [x] 7.7 Submit successful recipients as one idempotent hit event with shot facts and retain retry state across partial failures; verify response loss does not reroll or duplicate a recipient delivery.
 
 ## 8. Aiming and application UI
 
-- [ ] 8.1 Build the primary English firing screen with server/session state, GPS accuracy, true heading, elevation, calculated range, fire control, acoustic ready control, concurrent flight countdowns, and mode selectors shown only when multiple allowed choices exist; verify one-mode and multi-mode UI states.
-- [ ] 8.2 Implement free and precise-coordinate guidance for required bearing/elevation, live numeric turn/tilt correction, predicted impact, miss offset, and out-of-range indication; verify firing while misaligned still uses actual sensors.
-- [ ] 8.3 Implement approximate-coordinate guidance that withholds the correction until landing and then shows exact left-right/add-drop metres; verify no correction leaks before impact and a shot outside the zone remains valid.
-- [ ] 8.4 Implement settings screens for all reference gameplay fields, firing/aiming checkbox lists, sound controls, approximate radius, elevation reference, current context, icon, and PIN plus separate quick calibration screens; verify protected settings remain local and reactivation resets them.
-- [ ] 8.5 Add local diagnostic/history visibility for pending/resolved shots, sensor snapshots, search results, probability/roll, and delivery state sufficient to troubleshoot retries; verify private bearer values are never displayed or logged.
+- [x] 8.1 Build the primary English firing screen with server/session state, GPS accuracy, true heading, elevation, calculated range, fire control, acoustic ready control, concurrent flight countdowns, and mode selectors shown only when multiple allowed choices exist; verify one-mode and multi-mode UI states.
+- [x] 8.2 Implement free and precise-coordinate guidance for required bearing/elevation, live numeric turn/tilt correction, predicted impact, miss offset, and out-of-range indication; verify firing while misaligned still uses actual sensors.
+- [x] 8.3 Implement approximate-coordinate guidance that withholds the correction until landing and then shows exact left-right/add-drop metres; verify no correction leaks before impact and a shot outside the zone remains valid.
+- [x] 8.4 Implement settings screens for all reference gameplay fields, firing/aiming checkbox lists, sound controls, approximate radius, elevation reference, current context, icon, and PIN plus separate quick calibration screens; verify protected settings remain local and reactivation resets them.
+- [x] 8.5 Add local diagnostic/history visibility for pending/resolved shots, sensor snapshots, search results, probability/roll, and delivery state sufficient to troubleshoot retries; verify private bearer values are never displayed or logged.
 
 ## 9. End-to-end verification and release
 
-- [ ] 9.1 Exercise staff creation, QR activation, manual activation, reactivation, scope switching, icon selection, revocation, and APK metadata against a test WordPress deployment; verify every provisioning scenario in the specs.
+- [x] 9.1 Exercise staff creation, QR activation, manual activation, reactivation, scope switching, icon selection, revocation, and APK metadata against a test WordPress deployment; verify every provisioning scenario in the specs.
 - [ ] 9.2 Run an end-to-end button/torch and acoustic firing test with mode restrictions, precise and approximate guidance, 60-degree calibration, multiple in-flight shots, a moving target, screen-off, temporary network loss, public impact expiry, successful mailbox delivery, FCM wake, and acknowledgement; verify server logs and device state agree without duplicate hits.
 - [ ] 9.3 Test on at least one Android 9 device and one current Android device with Google Play Services, including battery restrictions and force-stop recovery limits; document supported setup instructions and observed constraints.
 - [ ] 9.4 Generate the release keystore outside Git, create two encrypted backups with separately retained credentials, and sign a release APK; verify Android accepts an upgrade signed by the same key without clearing local configuration.
