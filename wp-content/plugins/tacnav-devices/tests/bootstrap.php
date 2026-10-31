@@ -177,3 +177,4 @@ require_once dirname( __DIR__ ) . '/app/Validation.php';
 require_once dirname( __DIR__ ) . '/app/Application_Store.php';
 require_once dirname( __DIR__ ) . '/app/Application_Context.php';
 require_once dirname( __DIR__ ) . '/app/Mailbox.php';
+require_once dirname( __DIR__ ) . '/app/Firebase.php';

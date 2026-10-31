@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use TacNav\Devices\Activator;
 use TacNav\Devices\Application_Context;
 use TacNav\Devices\Application_Store;
+use TacNav\Devices\Firebase;
 use TacNav\Devices\Mailbox;
 use TacNav\Devices\Validation;
 
@@ -17,6 +18,7 @@ require_once __DIR__ . '/bootstrap.php';
 /**
  * @covers \TacNav\Devices\Activator
  * @covers \TacNav\Devices\Application_Store
+ * @covers \TacNav\Devices\Firebase
  * @covers \TacNav\Devices\Validation
  */
 class TacNav_Devices_Contracts_Test extends TestCase {
@@ -170,5 +172,17 @@ class TacNav_Devices_Contracts_Test extends TestCase {
 		$this->assertSame( 24 * 60 * 60, Mailbox::PENDING_SECONDS );
 		$this->assertSame( 60 * 60, Mailbox::ACK_SECONDS );
 		$this->assertLessThan( Mailbox::PENDING_SECONDS, 12 * 60 * 60 );
+	}
+
+	/**
+	 * Wake is data-only so a backgrounded phone still runs its mailbox sync.
+	 */
+	public function test_wake_message_carries_only_delivery_reference_data() {
+		$message = Firebase::wake_message( 'device-token', 42 )['message'];
+
+		$this->assertArrayNotHasKey( 'notification', $message );
+		$this->assertSame( array( 'delivery_ref' => '42' ), $message['data'] );
+		$this->assertSame( 'high', $message['android']['priority'] );
+		$this->assertSame( 'device-token', $message['token'] );
 	}
 }

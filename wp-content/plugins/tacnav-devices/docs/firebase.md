@@ -12,7 +12,7 @@ The sender uses PHP OpenSSL to sign an RS256 OAuth JWT and WordPress HTTP APIs t
 
 ## Wake behavior
 
-The active installation registers or rotates its FCM token through `PUT /tacnav-devices/v1/fcm`; an empty token unregisters it. Reactivation and staff revocation clear the previous registration. A wake contains only a delivery reference plus a user-visible notification and Android high priority. The phone must fetch and acknowledge the mailbox row before applying game logic.
+The active installation registers or rotates its FCM token through `PUT /tacnav-devices/v1/fcm`; an empty token unregisters it. Reactivation and staff revocation clear the previous registration. A wake is a data-only, Android high-priority message whose only data field is `delivery_ref` (the delivery cursor id); `Firebase::wake_message()` builds it. It has no `notification` block, because Android would display that itself while the app is backgrounded and skip `onMessageReceived`; the app shows the user-visible notification after starting its mailbox sync. The phone must fetch and acknowledge the mailbox row before applying game logic.
 
 Missing credentials, OAuth errors, token rejection, or transport failures do not acknowledge or delete deliveries. A not-found/gone registration response clears that stale token. The mailbox remains available for application-start, network-restoration, foreground-resume, and periodic reconciliation.
 

@@ -15,6 +15,11 @@ defined( 'ABSPATH' ) || exit;
 class Firebase {
 
 	/**
+	 * Wake data key read by the Android application.
+	 */
+	const DATA_DELIVERY_REFERENCE = 'delivery_ref';
+
+	/**
 	 * External service-account path.
 	 *
 	 * @return string
@@ -70,19 +75,7 @@ class Firebase {
 					'Authorization' => 'Bearer ' . $token,
 					'Content-Type'  => 'application/json',
 				),
-				'body'    => wp_json_encode(
-					array(
-						'message' => array(
-							'token'        => (string) $row['fcm_token'],
-							'notification' => array(
-								'title' => __( 'Tac Nav message', 'tacnav-devices' ),
-								'body'  => __( 'Open Tac Nav to receive a pending field message.', 'tacnav-devices' ),
-							),
-							'data'         => array( 'delivery_ref' => (string) (int) $delivery_id ),
-							'android'      => array( 'priority' => 'high' ),
-						),
-					)
-				),
+				'body'    => wp_json_encode( self::wake_message( (string) $row['fcm_token'], $delivery_id ) ),
 			)
 		);
 		if ( is_wp_error( $response ) ) {
@@ -105,6 +98,28 @@ class Firebase {
 			);
 		}
 		return new \WP_Error( 'tacnav_fcm_failed', __( 'Firebase wake-up failed; the mailbox remains pending.', 'tacnav-devices' ) );
+	}
+
+	/**
+	 * Build the HTTP v1 wake message for one delivery.
+	 *
+	 * Data-only, so Android always calls the app's onMessageReceived, which
+	 * syncs the mailbox and shows the user-visible notification itself. A
+	 * notification block would be shown by the system instead while the app is
+	 * in the background, skipping the sync.
+	 *
+	 * @param string $fcm_token   Installation registration token.
+	 * @param int    $delivery_id Delivery cursor.
+	 * @return array<string, mixed>
+	 */
+	public static function wake_message( $fcm_token, $delivery_id ) {
+		return array(
+			'message' => array(
+				'token'   => $fcm_token,
+				'data'    => array( self::DATA_DELIVERY_REFERENCE => (string) (int) $delivery_id ),
+				'android' => array( 'priority' => 'high' ),
+			),
+		);
 	}
 
 	/**
