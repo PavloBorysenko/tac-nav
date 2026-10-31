@@ -41,23 +41,12 @@ class Admin {
 		if ( ! REST::staff_permission() ) {
 			wp_die( esc_html__( 'You are not allowed to manage device applications.', 'tacnav-devices' ) );
 		}
-		$applications = ( new Application_Store() )->all();
-		$action       = admin_url( 'admin-post.php' );
-		$release      = self::release_metadata();
-		$tacnav_maps  = \TacNav\Maps\Catalog::get_maps();
-		$tacnav_teams = \TacNav\Maps\Catalog::get_teams();
-		$tacnav_icons = \TacNav\Maps\Catalog::get_icons();
-		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- staff list filter after capability check.
-		$edit_id = isset( $_GET['edit'] ) ? (int) wp_unslash( $_GET['edit'] ) : 0;
+		$tacnav_pages = Apps\App_Pages::all();
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- staff tab selection after capability check.
+		$tacnav_requested = isset( $_GET['app'] ) ? sanitize_key( wp_unslash( $_GET['app'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-		$tacnav_draft     = $edit_id > 0 ? ( new Application_Store() )->get( $edit_id ) : null;
-		$tacnav_reference = Validation::reference_settings(
-			is_array( $tacnav_draft ) && isset( $tacnav_draft['reference_settings'] ) ? $tacnav_draft['reference_settings'] : array()
-		);
-		if ( is_wp_error( $tacnav_reference ) ) {
-			$tacnav_reference = Validation::reference_defaults();
-		}
-		require TACNAV_DEVICES_DIR . 'templates/admin-page.php';
+		$tacnav_current = Apps\App_Pages::resolve( $tacnav_pages, $tacnav_requested );
+		require TACNAV_DEVICES_DIR . 'templates/admin-shell.php';
 	}
 
 	/**

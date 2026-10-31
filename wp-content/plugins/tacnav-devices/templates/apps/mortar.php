@@ -27,8 +27,6 @@ $tacnav_edit_url     = admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNa
 <style>
 	.tacnav-inline-form { display: inline; margin-left: 0.35rem; }
 </style>
-<div class="wrap">
-	<h1><?php esc_html_e( 'TacNav device applications', 'tacnav-devices' ); ?></h1>
 	<h2><?php echo $tacnav_draft ? esc_html__( 'Edit application definition', 'tacnav-devices' ) : esc_html__( 'Application definition', 'tacnav-devices' ); ?></h2>
 	<p><?php esc_html_e( 'Choose published maps and teams from the catalog. Gameplay fields become the phone’s starting settings at the next activation.', 'tacnav-devices' ); ?></p>
 	<form method="post" action="<?php echo esc_url( $action ); ?>">
@@ -200,4 +198,3 @@ $tacnav_edit_url     = admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNa
 			<a class="button" href="<?php echo esc_url( \TacNav\Devices\Release::public_page_url() ); ?>"><?php esc_html_e( 'Open public download page', 'tacnav-devices' ); ?></a>
 		</p>
 	<?php endif; ?>
-</div>

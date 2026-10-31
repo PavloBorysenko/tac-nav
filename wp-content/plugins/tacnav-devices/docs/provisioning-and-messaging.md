@@ -12,7 +12,9 @@ An activation code is random, stored only as a SHA-256 hash, expires after 15 mi
 
 Devices should store the bearer in Android secure storage. Do not place activation codes or bearers in URLs, logs, screenshots, analytics, WordPress options, or support exports. Staff revocation clears the active phone's FCM registration and makes its bearer fail.
 
-The staff page publishes the current Android package. Its package is always `com.tacnav.mortar`. Staff upload a built APK (or paste an HTTPS URL) and a version. That upload replaces the previous latest file under `uploads/tacnav-devices/` (not in Git). Players get it from the public page `/tacnav-mortar/` or the front-page **Mortar app** control, then activate with a staff QR or one-time code. Signing keys and Firebase service credentials are not release metadata.
+The Device applications staff page has one tab per application, selected by the `app` request parameter. A missing or unknown value opens Mortar, which is currently the only tab. To add an application, add a class implementing `App_Page` under `app/Apps/`, add its template under `templates/apps/`, and list it after Mortar in `App_Pages::all()`. Everything else on this page describes Mortar. These parts are still single-application and must be extended with the first new application: one release in `Release` and `tacnav_devices_release`, the unfiltered application list, Mortar-only `Validation::reference_settings()`, and activation that does not check the application type, so a phone can consume another application's QR.
+
+The Mortar tab publishes the current Android package. Its package is always `com.tacnav.mortar`. Staff upload a built APK (or paste an HTTPS URL) and a version. That upload replaces the previous latest file under `uploads/tacnav-devices/` (not in Git). Players get it from the public page `/tacnav-mortar/` or the front-page **Mortar app** control, then activate with a staff QR or one-time code. Signing keys and Firebase service credentials are not release metadata.
 
 ## Application context
 
@@ -34,4 +36,5 @@ Pending deliveries remain readable for 24 hours. Acknowledged rows may be remove
 - `wp-content/plugins/tacnav-devices/app/Application_Context.php` — authenticated scope resolution and Maps filter
 - `wp-content/plugins/tacnav-devices/app/Mailbox.php` — event, delivery, cursor, acknowledgement, binding, and retention behavior
 - `wp-content/plugins/tacnav-devices/app/REST.php` — device and staff endpoint registration
-- `wp-content/plugins/tacnav-devices/app/Admin.php` — protected application, activation handoff, revocation, and APK metadata controls
+- `wp-content/plugins/tacnav-devices/app/Admin.php` — staff page shell plus protected application, activation handoff, revocation, and APK metadata controls
+- `wp-content/plugins/tacnav-devices/app/Apps/Mortar_Page.php` and `wp-content/plugins/tacnav-devices/templates/apps/mortar.php` — Mortar tab

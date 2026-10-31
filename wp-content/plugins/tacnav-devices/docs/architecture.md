@@ -10,6 +10,8 @@ The plugin is a first-party, non-tiny component with PSR-4 namespace `TacNav\Dev
 
 The plugin registers the `tacnav-devices/v1` REST namespace, a capability-protected staff page under the TacNav Maps menu, and versioned provisioning/mailbox tables. Device rows remain after deactivation; only the hourly retention schedule is removed.
 
+The staff page is a tab shell. Each device application is an `App_Page` listed in `App_Pages::all()` and owns its page content. The first listed page is the default tab, so Mortar must stay first. See [Provisioning and messaging](provisioning-and-messaging.md) for the steps to add an application.
+
 ## Dependencies
 
 `tacnav-maps` is required and is declared through the WordPress `Requires Plugins` header. Activation stops with a clear error when TacNav Maps did not load, and normal boot shows an administrator notice instead of wiring device hooks when the dependency disappears.
@@ -27,4 +29,6 @@ The plugin stores no plaintext activation code or bearer credential. Release met
 - `wp-content/plugins/tacnav-devices/app/Activator.php` — activation guard and schema-version entry point
 - `wp-content/plugins/tacnav-devices/app/Plugin.php` — REST, administration, maintenance, and integration hook wiring
 - `wp-content/plugins/tacnav-devices/app/Release.php` — APK upload validation, hosted file storage, and public download routes
+- `wp-content/plugins/tacnav-devices/app/Apps/` — application page contract, page list, and Mortar page
+- `wp-content/plugins/tacnav-devices/templates/admin-shell.php` — staff page wrapper and tab bar
 - `wp-content/plugins/tacnav-devices/composer.json` — PSR-4 namespace mapping
