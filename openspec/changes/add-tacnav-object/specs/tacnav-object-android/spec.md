@@ -58,7 +58,7 @@ With both size fields empty the object SHALL be a point. With exactly one filled
 - **THEN** the rectangle keeps its orientation
 
 ### Requirement: Life cycle states
-The application SHALL be in exactly one of Waiting, Deploying, Active, or Destroyed, and SHALL keep that state across process death. In Waiting no object SHALL exist on the map. Pressing Activate SHALL start Deploying. With zero deployment seconds the phone SHALL pass directly to Active. Otherwise a progress bar SHALL run for the configured seconds and then enter Active. Cancelling Deploying SHALL delete the object and return to Waiting. Destroyed SHALL NOT accept activation and SHALL end only by QR activation or protected reset.
+The application SHALL be in exactly one of Waiting, Deploying, Active, or Destroyed, and SHALL keep that state across process death. In Waiting no object SHALL exist on the map. Pressing Activate SHALL start Deploying. With zero deployment seconds the phone SHALL pass directly to Active. Otherwise a progress bar SHALL run for the configured seconds and then enter Active. Cancelling Deploying SHALL delete the object and return to Waiting. Destroyed SHALL NOT accept activation and SHALL end only by QR activation or protected reset. The Destroyed screen SHALL offer a control that opens QR scanning directly, without a PIN and without giving up the current activation until a new code succeeds.
 
 #### Scenario: Instant activation
 - **WHEN** deployment seconds are 0 and the user presses Activate with a valid GPS fix
@@ -71,6 +71,10 @@ The application SHALL be in exactly one of Waiting, Deploying, Active, or Destro
 #### Scenario: Destroyed phone
 - **WHEN** a Destroyed phone is opened
 - **THEN** activation is unavailable until QR activation or protected reset
+
+#### Scenario: Scanning from the Destroyed screen
+- **WHEN** a user presses Scan new QR code on a Destroyed phone and goes back without scanning
+- **THEN** the phone is still activated and still Destroyed
 
 ### Requirement: GPS accuracy gates activation
 The application SHALL refuse to start Deploying while the location is older than 15 seconds or its accuracy is worse than the configured limit, showing the current accuracy and the limit. If accuracy exceeds the limit during Deploying, deployment SHALL be cancelled. A fix worse than the limit during Active MUST NOT move the object and MUST NOT count as displacement, and the phone SHALL stay Active.

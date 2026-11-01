@@ -55,10 +55,12 @@ fun ActivationScreen(
     onRequestCamera: () -> Unit,
     cameraGranted: Boolean,
     onActivate: (ActivationPayload) -> Unit,
+    startScanning: Boolean = false,
+    onCancel: (() -> Unit)? = null,
 ) {
     var serverUrl by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
-    var scanning by rememberSaveable { mutableStateOf(false) }
+    var scanning by rememberSaveable { mutableStateOf(startScanning) }
     var local by rememberSaveable { mutableStateOf<String?>(null) }
     Column(
         Modifier
@@ -125,6 +127,16 @@ fun ActivationScreen(
             Text(if (busy) "Activating…" else "Activate this phone")
         }
         (local ?: error)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        onCancel?.let {
+            TextButton(
+                onClick = it,
+                enabled = !busy,
+                colors = textButtonColors(),
+                modifier = Modifier.testTag("activation_back"),
+            ) {
+                Text("Back")
+            }
+        }
     }
 }
 
@@ -135,6 +147,7 @@ fun MainScreen(
     onDeactivate: () -> Unit,
     onArm: () -> Unit,
     onOpenSettings: () -> Unit,
+    onScanQr: () -> Unit = {},
 ) {
     val game = ui.game
     val settings = game.session?.settings ?: ui.local.settings
@@ -255,10 +268,19 @@ fun MainScreen(
             ) {
                 Text("Deactivate", fontSize = 20.sp)
             }
-            LifeState.DESTROYED -> Text(
-                "Reset this object in Settings, or activate it again with a new QR code.",
-                textAlign = TextAlign.Center,
-            )
+            LifeState.DESTROYED -> {
+                Button(
+                    onClick = onScanQr,
+                    colors = primaryButtonColors(),
+                    modifier = Modifier.fillMaxWidth().height(64.dp).testTag("scan_new_qr"),
+                ) {
+                    Text("Scan new QR code", fontSize = 20.sp)
+                }
+                Text(
+                    "Get a new QR code from the organizer, or reset this object in Settings.",
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         TextButton(
             onClick = onOpenSettings,

@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
         var activating by remember { mutableStateOf(false) }
         var activationError by remember { mutableStateOf<String?>(null) }
         var settingsOpen by rememberSaveable { mutableStateOf(false) }
+        var reactivating by rememberSaveable { mutableStateOf(false) }
         var asking by remember { mutableStateOf(false) }
         var frame by remember { mutableStateOf(0L) }
 
@@ -102,7 +103,7 @@ class MainActivity : ComponentActivity() {
 
         val state = local
         val current = game
-        if (state == null || current == null) {
+        if (state == null || current == null || reactivating) {
             ActivationScreen(
                 busy = activating,
                 error = activationError,
@@ -114,7 +115,17 @@ class MainActivity : ComponentActivity() {
                     activate(payload) { failure ->
                         activating = false
                         activationError = failure
+                        if (failure == null) reactivating = false
                     }
+                },
+                startScanning = reactivating,
+                onCancel = if (reactivating) {
+                    {
+                        reactivating = false
+                        activationError = null
+                    }
+                } else {
+                    null
                 },
             )
             return
@@ -157,6 +168,10 @@ class MainActivity : ComponentActivity() {
             },
             onArm = app.controller::arm,
             onOpenSettings = { asking = true },
+            onScanQr = {
+                if (!cameraGranted.value) cameraPermission.launch(Manifest.permission.CAMERA)
+                reactivating = true
+            },
         )
         if (asking) {
             PinDialog(
@@ -208,10 +223,11 @@ class MainActivity : ComponentActivity() {
         token: String?,
         onFinished: (String?) -> Unit,
     ) {
+        val previous = repository.state.value?.activation?.applicationId
         lifecycleScope.launch {
             runCatching { repository.activate(payload) }
                 .onSuccess {
-                    app.startNewGame()
+                    app.startNewGame(previous)
                     onFinished(null)
                     if (!token.isNullOrBlank()) {
                         runCatching { repository.registerFcmToken(token) }

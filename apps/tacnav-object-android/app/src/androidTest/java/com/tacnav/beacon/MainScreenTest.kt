@@ -68,6 +68,7 @@ class MainScreenTest {
                     onDeactivate = { pressed = "deactivate" },
                     onArm = { pressed = "arm" },
                     onOpenSettings = { pressed = "settings" },
+                    onScanQr = { pressed = "scan" },
                 )
             }
         }
@@ -136,6 +137,13 @@ class MainScreenTest {
         compose.onNodeWithTag("life_state").assertTextEquals("Destroyed")
         compose.onNodeWithTag("activate").assertDoesNotExist()
         compose.onNodeWithTag("deactivate").assertDoesNotExist()
+    }
+
+    @Test
+    fun destroyedPhoneCanScanANewQrCode() {
+        show(GameState("k", life = LifeState.DESTROYED, hits = 5))
+        compose.onNodeWithTag("scan_new_qr").performClick()
+        assertEquals("scan", pressed)
     }
 
     @Test

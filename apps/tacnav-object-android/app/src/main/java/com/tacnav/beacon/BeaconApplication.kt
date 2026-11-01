@@ -79,8 +79,18 @@ class BeaconApplication : Application() {
 
     private fun newWreckKey(): String = UUID.randomUUID().toString()
 
-    /** Called after a successful activation, which always starts a new game. */
-    fun startNewGame() {
+    /**
+     * Called after a successful activation, which always starts a new game.
+     *
+     * Reactivating the same application keeps its unsent wreck and deletes, which
+     * the new credential can still finish. Another application cannot.
+     */
+    fun startNewGame(previousApplicationId: Long?) {
+        val activated = repository.state.value?.activation?.applicationId
+        if (activated == previousApplicationId && controller.state.value != null) {
+            controller.reset()
+            return
+        }
         val fresh = GameState(newWreckKey())
         store.saveGame(fresh)
         controller.load(fresh)
