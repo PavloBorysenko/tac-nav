@@ -207,13 +207,17 @@ class REST {
 			return $payload;
 		}
 
-		$store = new Geo_Store();
-		$id    = $store->insert( $payload );
-		if ( is_wp_error( $id ) ) {
-			return $id;
+		$store  = new Geo_Store();
+		$stored = $store->insert_once( $payload );
+		if ( is_wp_error( $stored ) ) {
+			return $stored;
 		}
 
+		$id     = $stored['id'];
 		$object = $store->get( $id );
+		if ( ! $stored['created'] ) {
+			return rest_ensure_response( self::with_can_edit( $object, $map_id ) );
+		}
 		if ( is_array( $application ) ) {
 			/**
 			 * Fires after an application-owned object has been committed.

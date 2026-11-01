@@ -108,6 +108,90 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 	}
 
 	/**
+	 * An application can exclude its object from search and name a create.
+	 */
+	public function test_application_write_accepts_the_search_flag_and_key() {
+		$payload = Application_Write::normalize(
+			array(
+				'kind'            => 'circle',
+				'geometry'        => array( 'lat' => 50, 'lng' => 30, 'radius' => 100 ),
+				'searchable'      => false,
+				'idempotency_key' => 'wreck-1',
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			true,
+			1700000000
+		);
+
+		$this->assertIsArray( $payload );
+		$this->assertFalse( $payload['searchable'] );
+		$this->assertSame( 'wreck-1', $payload['client_key'] );
+	}
+
+	/**
+	 * Objects are searchable by default, and client_object_id has no server effect.
+	 */
+	public function test_application_write_defaults_to_searchable() {
+		$payload = Application_Write::normalize(
+			array(
+				'kind'             => 'marker',
+				'geometry'         => array( 'lat' => 50, 'lng' => 30 ),
+				'client_object_id' => 'mortar-position',
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			true,
+			1700000000
+		);
+
+		$this->assertIsArray( $payload );
+		$this->assertTrue( $payload['searchable'] );
+		$this->assertArrayNotHasKey( 'client_key', $payload );
+	}
+
+	/**
+	 * An update that omits the flag leaves it alone, and a key is create-only.
+	 */
+	public function test_application_update_omits_absent_flag_and_ignores_key() {
+		$payload = Application_Write::normalize(
+			array(
+				'kind'            => 'marker',
+				'geometry'        => array( 'lat' => 50, 'lng' => 30 ),
+				'idempotency_key' => 'late',
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			false,
+			1700000000
+		);
+
+		$this->assertIsArray( $payload );
+		$this->assertArrayNotHasKey( 'searchable', $payload );
+		$this->assertArrayNotHasKey( 'client_key', $payload );
+	}
+
+	/**
+	 * A malformed key is refused instead of silently losing idempotency.
+	 */
+	public function test_application_write_refuses_a_malformed_key() {
+		$refused = Application_Write::normalize(
+			array(
+				'kind'            => 'marker',
+				'geometry'        => array( 'lat' => 50, 'lng' => 30 ),
+				'idempotency_key' => str_repeat( 'x', 65 ),
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			true,
+			1700000000
+		);
+
+		$this->assertInstanceOf( WP_Error::class, $refused );
+		$this->assertSame( 'tacnav_idempotency_key', $refused->get_error_code() );
+	}
+
+	/**
 	 * A deleted icon falls back to the default marker.
 	 */
 	public function test_application_write_falls_back_for_a_missing_icon() {

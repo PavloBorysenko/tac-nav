@@ -172,9 +172,142 @@ if ( ! function_exists( 'wp_die' ) ) {
 	}
 }
 
+if ( ! function_exists( 'sanitize_key' ) ) {
+	/**
+	 * Key sanitizer stub.
+	 *
+	 * @param string $key Key.
+	 * @return string
+	 */
+	function sanitize_key( $key ) {
+		return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) );
+	}
+}
+
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+	/**
+	 * Text sanitizer stub.
+	 *
+	 * @param string $text Text.
+	 * @return string
+	 */
+	function sanitize_text_field( $text ) {
+		return trim( $text );
+	}
+}
+
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	/**
+	 * URL sanitizer stub.
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	function esc_url_raw( $url ) {
+		return $url;
+	}
+}
+
+if ( ! function_exists( 'get_option' ) ) {
+	/**
+	 * Read an isolated option.
+	 *
+	 * @param string $name     Option.
+	 * @param mixed  $fallback Default.
+	 * @return mixed
+	 */
+	function get_option( $name, $fallback = false ) {
+		return isset( $GLOBALS['tacnav_test_options'][ $name ] ) ? $GLOBALS['tacnav_test_options'][ $name ] : $fallback;
+	}
+}
+
+if ( ! function_exists( 'home_url' ) ) {
+	/**
+	 * Site URL stub.
+	 *
+	 * @param string $path Path.
+	 * @return string
+	 */
+	function home_url( $path = '' ) {
+		return 'https://example.test' . $path;
+	}
+}
+
+if ( ! function_exists( 'wp_upload_dir' ) ) {
+	/**
+	 * Uploads directory stub.
+	 *
+	 * @return array<string, mixed>
+	 */
+	function wp_upload_dir() {
+		return array(
+			'basedir' => sys_get_temp_dir() . '/tacnav-test-uploads',
+			'error'   => false,
+		);
+	}
+}
+
+if ( ! function_exists( 'trailingslashit' ) ) {
+	/**
+	 * Trailing slash stub.
+	 *
+	 * @param string $value Path.
+	 * @return string
+	 */
+	function trailingslashit( $value ) {
+		return rtrim( $value, '/\\' ) . '/';
+	}
+}
+
+if ( ! function_exists( 'add_rewrite_rule' ) ) {
+	/**
+	 * Record a rewrite rule.
+	 *
+	 * @param string $regex Pattern.
+	 * @param string $query Query.
+	 * @return void
+	 */
+	function add_rewrite_rule( $regex, $query ) {
+		$GLOBALS['tacnav_test_rewrites'][ $regex ] = $query;
+	}
+}
+
+if ( ! function_exists( 'current_user_can' ) ) {
+	/**
+	 * Isolated capability check.
+	 *
+	 * @param string $capability Capability.
+	 * @return bool
+	 */
+	function current_user_can( $capability ) {
+		unset( $capability );
+		return ! empty( $GLOBALS['tacnav_test_is_staff'] );
+	}
+}
+
+if ( ! function_exists( 'current_time' ) ) {
+	/**
+	 * Current UTC database time.
+	 *
+	 * @return string
+	 */
+	function current_time() {
+		return gmdate( 'Y-m-d H:i:s' );
+	}
+}
+
+require_once dirname( __DIR__, 2 ) . '/tacnav-maps/app/Roles.php';
 require_once dirname( __DIR__ ) . '/app/Activator.php';
+require_once dirname( __DIR__ ) . '/app/App_Types.php';
 require_once dirname( __DIR__ ) . '/app/Validation.php';
 require_once dirname( __DIR__ ) . '/app/Application_Store.php';
 require_once dirname( __DIR__ ) . '/app/Application_Context.php';
 require_once dirname( __DIR__ ) . '/app/Mailbox.php';
 require_once dirname( __DIR__ ) . '/app/Firebase.php';
+require_once dirname( __DIR__ ) . '/app/Release.php';
+require_once dirname( __DIR__ ) . '/app/REST.php';
+require_once dirname( __DIR__ ) . '/app/Admin.php';
+require_once dirname( __DIR__ ) . '/app/Apps/App_Page.php';
+require_once dirname( __DIR__ ) . '/app/Apps/App_Pages.php';
+require_once dirname( __DIR__ ) . '/app/Apps/Mortar_Page.php';
+require_once dirname( __DIR__ ) . '/app/Apps/Object_Page.php';

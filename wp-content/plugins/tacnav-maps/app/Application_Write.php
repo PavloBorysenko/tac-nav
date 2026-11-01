@@ -57,6 +57,18 @@ class Application_Write {
 		if ( array_key_exists( 'ttl_seconds', $body ) ) {
 			$payload['ttl_seconds'] = $body['ttl_seconds'];
 		}
+		if ( array_key_exists( 'searchable', $body ) ) {
+			$payload['searchable'] = filter_var( $body['searchable'], FILTER_VALIDATE_BOOLEAN );
+		} elseif ( $create ) {
+			$payload['searchable'] = true;
+		}
+		if ( $create && isset( $body['idempotency_key'] ) && '' !== $body['idempotency_key'] ) {
+			$key = (string) $body['idempotency_key'];
+			if ( ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $key ) ) {
+				return new \WP_Error( 'tacnav_idempotency_key', __( 'idempotency_key must be 1 to 64 letters, digits, hyphens, or underscores.', 'tacnav-maps' ), array( 'status' => 400 ) );
+			}
+			$payload['client_key'] = $key;
+		}
 		if ( ! $create ) {
 			unset( $payload['origin'], $payload['application_id'], $payload['created_by_user_id'] );
 		}

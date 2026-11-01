@@ -14,7 +14,7 @@ Map edit screens enqueue `assets/admin-map-picker.js` and `assets/admin.css` so 
 
 ## Constraints and side effects
 
-Rewrite `tacnav-canvas/{id}` must be flushed after activation. Satellite tiles are Esri World Imagery; place names are the Esri World Boundaries and Places overlay. Attribution is required. The canvas map allows zoom 1–22; tiles scale past native level 19. Object icons stay 34px at every zoom. Clicks in draw, measure, and coordinate modes pass through existing polygons and circles. Every side sheet has a close control. Create and update REST rows include `can_edit` so the popup can edit without a reload. The canvas turns off CSS view transitions (`@view-transition { navigation: none }`) and swallows skipped `document.startViewTransition` promises so Chrome does not log `AbortError: Transition was skipped` on this standalone page.
+Rewrite `tacnav-canvas/{id}` must be flushed after activation. Satellite tiles are Esri World Imagery; place names are the Esri World Boundaries and Places overlay. Attribution is required. The canvas map allows zoom 1–22; tiles scale past native level 19. Object icons stay 34px at every zoom. A not-searchable circle or polygon with no icon is a hint area: it draws no centre pin and binds its title to the shape. Clicks in draw, measure, and coordinate modes pass through existing polygons and circles. Every side sheet has a close control. Create and update REST rows include `can_edit` so the popup can edit without a reload. The canvas turns off CSS view transitions (`@view-transition { navigation: none }`) and swallows skipped `document.startViewTransition` promises so Chrome does not log `AbortError: Transition was skipped` on this standalone page.
 
 ## Implementation references
 

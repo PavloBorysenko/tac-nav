@@ -16,7 +16,9 @@ Default staff viewers see non-expired objects. Empty visibility means all author
 
 Object writes accept `ttl_seconds`; `ttl_minutes` is rejected without compatibility conversion. Positive seconds set `expires_at` from server acceptance, zero clears expiry, and omission on update preserves the stored absolute expiry.
 
-`POST /tacnav/v1/maps/{map_id}/search` is application-only. The body contains `kind` and normalized `geometry`. It selects candidates with the map, expiry, and spatial indexes, then performs exact canonical-geometry intersection. Results contain only `id`, `kind`, `geometry`, and optional `position_accuracy_m`; visibility, origin, ownership, distances, probabilities, and game decisions are intentionally absent.
+Application creates and updates accept `searchable` (default true). A create also accepts `idempotency_key`, 1 to 64 letters, digits, hyphens, or underscores. Repeating a create with the same key from the same application returns the stored object without a second row, a new binding, or a picture publish. `client_object_id` has no server effect because Mortar sends constant values in it.
+
+`POST /tacnav/v1/maps/{map_id}/search` is application-only. The body contains `kind` and normalized `geometry`. It selects searchable candidates with the map, expiry, and spatial indexes, then performs exact canonical-geometry intersection. Results contain only `id`, `kind`, `geometry`, and optional `position_accuracy_m`; visibility, origin, ownership, distances, probabilities, and game decisions are intentionally absent.
 
 ## Implementation references
 

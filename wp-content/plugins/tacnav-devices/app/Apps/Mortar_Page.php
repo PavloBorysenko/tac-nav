@@ -8,6 +8,7 @@
 namespace TacNav\Devices\Apps;
 
 use TacNav\Devices\Admin;
+use TacNav\Devices\App_Types;
 use TacNav\Devices\Application_Store;
 use TacNav\Devices\Validation;
 
@@ -42,7 +43,8 @@ class Mortar_Page implements App_Page {
 	 * @return void
 	 */
 	public function render() {
-		$applications = ( new Application_Store() )->all();
+		$store        = new Application_Store();
+		$applications = $store->all( App_Types::MORTAR );
 		$action       = admin_url( 'admin-post.php' );
 		$release      = Admin::release_metadata();
 		$tacnav_maps  = \TacNav\Maps\Catalog::get_maps();
@@ -51,7 +53,10 @@ class Mortar_Page implements App_Page {
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- staff list filter after capability check.
 		$edit_id = isset( $_GET['edit'] ) ? (int) wp_unslash( $_GET['edit'] ) : 0;
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
-		$tacnav_draft     = $edit_id > 0 ? ( new Application_Store() )->get( $edit_id ) : null;
+		$tacnav_draft = $edit_id > 0 ? $store->get( $edit_id ) : null;
+		if ( $tacnav_draft && App_Types::MORTAR !== App_Types::canonical( (string) $tacnav_draft['application_type'] ) ) {
+			$tacnav_draft = null;
+		}
 		$tacnav_reference = Validation::reference_settings(
 			is_array( $tacnav_draft ) && isset( $tacnav_draft['reference_settings'] ) ? $tacnav_draft['reference_settings'] : array()
 		);

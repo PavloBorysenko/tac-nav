@@ -193,6 +193,130 @@ class Validation {
 	}
 
 	/**
+	 * Default Object reference used when staff omit a field.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function object_reference_defaults() {
+		return array(
+			'object_name'             => '',
+			'description'             => '',
+			'icon_id'                 => 0,
+			'destroyed_icon_id'       => 0,
+			'hits_to_destroy'         => 0,
+			'size_a_m'                => null,
+			'size_b_m'                => null,
+			'activation_seconds'      => 0,
+			'visibility'              => 'team',
+			'random_area_enabled'     => false,
+			'random_area_radius_m'    => 0.0,
+			'auto_deactivate_m'       => 0.0,
+			'max_location_accuracy_m' => 15.0,
+			'auto_activate_enabled'   => false,
+			'auto_activate_seconds'   => 0,
+			'max_downtime_minutes'    => null,
+			'downtime_reset_minutes'  => null,
+			'settings_pin'            => '4321',
+		);
+	}
+
+	/**
+	 * Normalize staff Object reference settings for storage and activation.
+	 *
+	 * @param mixed  $input Submitted values.
+	 * @param string $name  Application name, used when no object name is set.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function object_reference_settings( $input, $name = '' ) {
+		$defaults = self::object_reference_defaults();
+		$source   = is_array( $input ) ? $input : array();
+
+		$object_name = isset( $source['object_name'] ) ? trim( (string) $source['object_name'] ) : '';
+		$object_name = '' === $object_name ? trim( (string) $name ) : $object_name;
+		if ( '' === $object_name ) {
+			return new \WP_Error( 'tacnav_object_name', __( 'Object name is required.', 'tacnav-devices' ) );
+		}
+
+		$numbers = array();
+		foreach ( array( 'icon_id', 'destroyed_icon_id', 'hits_to_destroy', 'size_a_m', 'size_b_m', 'activation_seconds', 'random_area_radius_m', 'auto_deactivate_m', 'max_location_accuracy_m', 'auto_activate_seconds', 'max_downtime_minutes', 'downtime_reset_minutes' ) as $key ) {
+			$value = isset( $source[ $key ] ) ? $source[ $key ] : '';
+			if ( '' !== $value && ( ! is_numeric( $value ) || (float) $value < 0 ) ) {
+				return new \WP_Error( 'tacnav_object_number', __( 'Object settings must be zero or greater.', 'tacnav-devices' ) );
+			}
+			$numbers[ $key ] = '' === $value ? null : (float) $value;
+		}
+
+		$pin = isset( $source['settings_pin'] ) ? trim( (string) $source['settings_pin'] ) : '';
+		$pin = '' === $pin ? $defaults['settings_pin'] : $pin;
+		if ( ! preg_match( '/^[0-9]{4,}$/', $pin ) ) {
+			return new \WP_Error( 'tacnav_object_pin', __( 'Settings PIN must contain at least four digits.', 'tacnav-devices' ) );
+		}
+
+		$accuracy   = $numbers['max_location_accuracy_m'] > 0 ? $numbers['max_location_accuracy_m'] : $defaults['max_location_accuracy_m'];
+		$size_a     = $numbers['size_a_m'] > 0 ? $numbers['size_a_m'] : null;
+		$size_b     = $numbers['size_b_m'] > 0 ? $numbers['size_b_m'] : null;
+		$downtime   = $numbers['max_downtime_minutes'] > 0 ? (int) $numbers['max_downtime_minutes'] : null;
+		$reset      = null !== $numbers['downtime_reset_minutes'] && null !== $downtime ? (int) $numbers['downtime_reset_minutes'] : null;
+		$area       = ! empty( $source['random_area_enabled'] );
+		$activate   = ! empty( $source['auto_activate_enabled'] );
+		$radius     = (float) $numbers['random_area_radius_m'];
+		$still      = (int) $numbers['auto_activate_seconds'];
+		$deactivate = (float) $numbers['auto_deactivate_m'];
+
+		if ( $area && ( $radius <= 0 || $radius < self::object_extent_m( $size_a, $size_b ) ) ) {
+			return new \WP_Error( 'tacnav_object_area', __( 'The random area radius must be positive and contain the whole object.', 'tacnav-devices' ) );
+		}
+		if ( $activate && $still <= 0 ) {
+			return new \WP_Error( 'tacnav_object_activate', __( 'Automatic activation needs a positive number of still seconds.', 'tacnav-devices' ) );
+		}
+		if ( $deactivate > 0 && $deactivate < 2 * $accuracy ) {
+			return new \WP_Error(
+				'tacnav_object_deactivate',
+				sprintf(
+					/* translators: %s: smallest accepted distance in metres. */
+					__( 'Automatic deactivation must be at least %s metres, twice the GPS accuracy limit.', 'tacnav-devices' ),
+					(string) ( 2 * $accuracy )
+				)
+			);
+		}
+
+		return array(
+			'object_name'             => $object_name,
+			'description'             => isset( $source['description'] ) ? trim( (string) $source['description'] ) : $defaults['description'],
+			'icon_id'                 => (int) $numbers['icon_id'],
+			'destroyed_icon_id'       => (int) $numbers['destroyed_icon_id'],
+			'hits_to_destroy'         => (int) $numbers['hits_to_destroy'],
+			'size_a_m'                => $size_a,
+			'size_b_m'                => $size_b,
+			'activation_seconds'      => (int) $numbers['activation_seconds'],
+			'visibility'              => isset( $source['visibility'] ) && 'all' === $source['visibility'] ? 'all' : 'team',
+			'random_area_enabled'     => $area,
+			'random_area_radius_m'    => $radius,
+			'auto_deactivate_m'       => $deactivate,
+			'max_location_accuracy_m' => $accuracy,
+			'auto_activate_enabled'   => $activate,
+			'auto_activate_seconds'   => $still,
+			'max_downtime_minutes'    => $downtime,
+			'downtime_reset_minutes'  => $reset,
+			'settings_pin'            => $pin,
+		);
+	}
+
+	/**
+	 * Distance from an object's centre to its furthest edge.
+	 *
+	 * @param float|null $size_a First size field.
+	 * @param float|null $size_b Second size field.
+	 * @return float
+	 */
+	private static function object_extent_m( $size_a, $size_b ) {
+		if ( null !== $size_a && null !== $size_b ) {
+			return sqrt( $size_a * $size_a + $size_b * $size_b ) / 2;
+		}
+		return (float) ( null !== $size_a ? $size_a : $size_b );
+	}
+
+	/**
 	 * Keep only allowed string choices.
 	 *
 	 * @param mixed              $values  Submitted values.

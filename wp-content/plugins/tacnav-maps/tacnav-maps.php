@@ -2,7 +2,7 @@
 /**
  * Plugin Name: TacNav Maps
  * Description: Staff map studio: maps, teams, icons, and geo objects.
- * Version: 0.1.4
+ * Version: 0.1.5
  * Author: SND Team
  * License: GPL-2.0-or-later
  * Requires at least: 6.7
@@ -14,7 +14,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TACNAV_MAPS_VERSION', '0.1.4' );
+define( 'TACNAV_MAPS_VERSION', '0.1.5' );
 define( 'TACNAV_MAPS_FILE', __FILE__ );
 define( 'TACNAV_MAPS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TACNAV_MAPS_URL', plugin_dir_url( __FILE__ ) );

@@ -2,7 +2,7 @@
 
 ## What this is
 
-TacNav Devices lets authorized TacNav staff define field applications, hand one application to one Android phone, revoke lost or replaced phones, publish the current Tac Nav Mortar APK, and deliver durable messages between application-owned map objects.
+TacNav Devices lets authorized TacNav staff define field applications, hand one application to one Android phone, revoke lost or replaced phones, publish the current Tac Nav Mortar and Tac Nav Object APKs, and deliver durable messages between application-owned map objects. Tac Nav Object turns a phone into a guarded objective such as an antenna: it shows itself on the map, takes hits from a mortar, and leaves a wreck when destroyed.
 
 ## Who owns what
 
@@ -19,3 +19,5 @@ An Organizer creates an application and generates a short-lived handoff. The ope
 - Activation codes and bearer credentials must never be committed, logged, or placed in URLs.
 - Firebase service-account credentials and Android signing keys stay outside Git and the public WordPress tree.
 - Reactivation intentionally revokes the old phone and resets local gameplay settings from the server reference.
+- An activation code works only in the application it was made for, and a code scanned in the wrong one stays usable.
+- The default Object PIN is `4321`. Anyone who knows it can reset a destroyed object, so organizers should set their own.

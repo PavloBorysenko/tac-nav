@@ -57,18 +57,22 @@ class Admin {
 	public static function save_application() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_save_application' );
-		$posted                 = wp_unslash( $_POST );
-		$posted['firing_modes'] = isset( $posted['firing_modes'] ) ? $posted['firing_modes'] : array();
-		$posted['aiming_modes'] = isset( $posted['aiming_modes'] ) ? $posted['aiming_modes'] : array();
-		$reference              = Validation::reference_settings( $posted );
+		$posted = wp_unslash( $_POST );
+		$type   = isset( $posted['application_type'] ) ? sanitize_key( (string) $posted['application_type'] ) : '';
+		$name   = isset( $posted['name'] ) ? (string) $posted['name'] : '';
+		if ( App_Types::MORTAR === App_Types::canonical( $type ) ) {
+			$posted['firing_modes'] = isset( $posted['firing_modes'] ) ? $posted['firing_modes'] : array();
+			$posted['aiming_modes'] = isset( $posted['aiming_modes'] ) ? $posted['aiming_modes'] : array();
+		}
+		$reference = App_Types::reference_settings( $type, $posted, $name );
 		if ( is_wp_error( $reference ) ) {
 			wp_die( esc_html( $reference->get_error_message() ) );
 		}
 		$result = ( new Application_Store() )->save(
 			array(
 				'id'                 => isset( $_POST['id'] ) ? (int) $_POST['id'] : 0,
-				'application_type'   => isset( $_POST['application_type'] ) ? wp_unslash( $_POST['application_type'] ) : '',
-				'name'               => isset( $_POST['name'] ) ? wp_unslash( $_POST['name'] ) : '',
+				'application_type'   => $type,
+				'name'               => $name,
 				'allowed_map_ids'    => self::posted_ids( isset( $posted['allowed_map_ids'] ) ? $posted['allowed_map_ids'] : array() ),
 				'allowed_team_ids'   => self::posted_ids( isset( $posted['allowed_team_ids'] ) ? $posted['allowed_team_ids'] : array() ),
 				'default_map_id'     => isset( $_POST['default_map_id'] ) ? (int) $_POST['default_map_id'] : 0,
@@ -79,7 +83,7 @@ class Admin {
 		if ( is_wp_error( $result ) ) {
 			wp_die( esc_html( $result->get_error_message() ) );
 		}
-		wp_safe_redirect( admin_url( 'edit.php?post_type=tacnav_map&page=' . self::PAGE . '&saved=1' ) );
+		wp_safe_redirect( admin_url( self::page_query( App_Types::canonical( $type ), 'saved' ) ) );
 		exit;
 	}
 
@@ -91,11 +95,14 @@ class Admin {
 	public static function create_activation() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_create_activation' );
-		$id   = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
-		$code = ( new Application_Store() )->create_activation( $id, get_current_user_id() );
+		$id    = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+		$store = new Application_Store();
+		$code  = $store->create_activation( $id, get_current_user_id() );
 		if ( is_wp_error( $code ) ) {
 			wp_die( esc_html( $code->get_error_message() ) );
 		}
+		$application = $store->get( $id );
+		$tacnav_type = App_Types::canonical( $application ? (string) $application['application_type'] : '' );
 		self::scripts();
 		wp_enqueue_script( 'tacnav-devices-admin' );
 		wp_enqueue_style(
@@ -104,7 +111,7 @@ class Admin {
 			array(),
 			TACNAV_DEVICES_VERSION
 		);
-		$release = self::release_metadata();
+		$release = self::release_metadata( $tacnav_type );
 		$payload = wp_json_encode(
 			array(
 				'server_url' => home_url( '/' ),
@@ -123,9 +130,10 @@ class Admin {
 	public static function revoke() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_revoke' );
-		$id = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+		$id  = isset( $_POST['id'] ) ? (int) $_POST['id'] : 0;
+		$app = isset( $_POST['app'] ) ? sanitize_key( wp_unslash( $_POST['app'] ) ) : '';
 		( new Application_Store() )->revoke( $id );
-		wp_safe_redirect( admin_url( 'edit.php?post_type=tacnav_map&page=' . self::PAGE . '&revoked=1' ) );
+		wp_safe_redirect( admin_url( self::page_query( $app, 'revoked' ) ) );
 		exit;
 	}
 
@@ -137,12 +145,15 @@ class Admin {
 	public static function save_release() {
 		self::staff_guard();
 		check_admin_referer( 'tacnav_devices_save_release' );
-		$current = self::release_metadata();
+		$app     = isset( $_POST['app'] ) ? sanitize_key( wp_unslash( $_POST['app'] ) ) : '';
+		$type    = App_Types::canonical( $app );
+		$details = App_Types::get( $type );
+		$current = self::release_metadata( $type );
 		$version = sanitize_text_field( (string) wp_unslash( isset( $_POST['version'] ) ? $_POST['version'] : '' ) );
 		$url     = esc_url_raw( (string) wp_unslash( isset( $_POST['download_url'] ) ? $_POST['download_url'] : '' ) );
 
 		if ( isset( $_FILES['apk'] ) && is_array( $_FILES['apk'] ) && ! empty( $_FILES['apk']['tmp_name'] ) ) {
-			$stored = Release::store_upload( $_FILES['apk'] );
+			$stored = Release::store_upload( $_FILES['apk'], $type );
 			if ( is_wp_error( $stored ) ) {
 				wp_die( esc_html( $stored->get_error_message() ) );
 			}
@@ -151,50 +162,74 @@ class Admin {
 		if ( '' === $url ) {
 			$url = $current['download_url'];
 		}
-		if ( '' === $url && Release::has_stored_apk() ) {
-			$url = Release::public_apk_url();
+		if ( '' === $url && Release::has_stored_apk( $type ) ) {
+			$url = Release::public_apk_url( $type );
 		}
 
 		update_option(
-			'tacnav_devices_release',
+			$details['option'],
 			array(
-				'package_id'   => Release::PACKAGE_ID,
+				'package_id'   => $details['package_id'],
 				'version'      => $version,
 				'download_url' => $url,
 			),
 			false
 		);
-		wp_safe_redirect( admin_url( 'edit.php?post_type=tacnav_map&page=' . self::PAGE . '&release_saved=1' ) );
+		wp_safe_redirect( admin_url( self::page_query( $app, 'release_saved' ) ) );
 		exit;
 	}
 
 	/**
-	 * Current safe APK metadata.
+	 * Staff page address for a tab. Mortar keeps the address it always had.
 	 *
+	 * @param string $app  Application tab slug.
+	 * @param string $flag Result flag to show, if any.
+	 * @return string
+	 */
+	public static function page_query( $app, $flag = '' ) {
+		$query = 'edit.php?post_type=tacnav_map&page=' . self::PAGE;
+		if ( App_Types::OBJECT === $app ) {
+			$query .= '&app=' . $app;
+		}
+		if ( '' !== $flag ) {
+			$query .= '&' . $flag . '=1';
+		}
+		return $query;
+	}
+
+	/**
+	 * Current safe APK metadata for one application.
+	 *
+	 * @param string $type Application type.
 	 * @return array<string, string>
 	 */
-	public static function release_metadata() {
-		$value = get_option( 'tacnav_devices_release', array() );
-		$value = is_array( $value ) ? $value : array();
-		$url   = esc_url_raw( isset( $value['download_url'] ) ? (string) $value['download_url'] : '' );
-		if ( '' === $url && Release::has_stored_apk() ) {
-			$url = Release::public_apk_url();
+	public static function release_metadata( $type = App_Types::MORTAR ) {
+		$details = App_Types::get( $type );
+		$value   = get_option( $details['option'], array() );
+		$value   = is_array( $value ) ? $value : array();
+		$url     = esc_url_raw( isset( $value['download_url'] ) ? (string) $value['download_url'] : '' );
+		if ( '' === $url && Release::has_stored_apk( $type ) ) {
+			$url = Release::public_apk_url( $type );
 		}
 		return array(
-			'package_id'   => Release::PACKAGE_ID,
+			'package_id'   => $details['package_id'],
 			'version'      => sanitize_text_field( isset( $value['version'] ) ? (string) $value['version'] : '' ),
 			'download_url' => $url,
 		);
 	}
 
 	/**
-	 * Register scripts shared by the handoff response.
+	 * Register scripts shared by the handoff response, and style the staff page.
 	 *
+	 * @param string $hook Admin page hook, empty outside `admin_enqueue_scripts`.
 	 * @return void
 	 */
-	public static function scripts() {
+	public static function scripts( $hook = '' ) {
 		wp_register_script( 'tacnav-qrcode', TACNAV_MAPS_URL . 'assets/vendor/qrcode.js', array(), TACNAV_MAPS_VERSION, true );
 		wp_register_script( 'tacnav-devices-admin', TACNAV_DEVICES_URL . 'assets/admin.js', array( 'tacnav-qrcode' ), TACNAV_DEVICES_VERSION, true );
+		if ( false !== strpos( (string) $hook, self::PAGE ) ) {
+			wp_enqueue_style( 'tacnav-devices-admin', TACNAV_DEVICES_URL . 'assets/admin.css', array(), TACNAV_DEVICES_VERSION );
+		}
 	}
 
 	/**

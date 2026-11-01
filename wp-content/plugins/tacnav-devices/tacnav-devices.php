@@ -2,7 +2,7 @@
 /**
  * Plugin Name: TacNav Devices
  * Description: Device provisioning, messaging, and Android release handoff for TacNav.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: SND Team
  * License: GPL-2.0-or-later
  * Requires at least: 6.7
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TACNAV_DEVICES_VERSION', '0.1.0' );
+define( 'TACNAV_DEVICES_VERSION', '0.2.0' );
 define( 'TACNAV_DEVICES_FILE', __FILE__ );
 define( 'TACNAV_DEVICES_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TACNAV_DEVICES_URL', plugin_dir_url( __FILE__ ) );
