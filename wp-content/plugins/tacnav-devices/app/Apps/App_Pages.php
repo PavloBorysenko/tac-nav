@@ -22,6 +22,7 @@ class App_Pages {
 	public static function all() {
 		return array(
 			new Mortar_Page(),
+			new Object_Page(),
 		);
 	}
 

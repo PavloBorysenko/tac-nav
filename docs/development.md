@@ -49,5 +49,6 @@ Do not point any future `WP_UnitTestCase` suite at this Local development databa
 - `.cursor/rules/wp-agent-harness-qa.mdc` — QA-loop mode `task` and gate commands
 - `.agents/skills/wp-agent-harness/` — vendored harness controller
 - `openspec/config.yaml` — OpenSpec project config (`schema: spec-driven`)
+- `apps/tacnav-object-android/` — second native app on the same toolchain; its `README.md` covers build, Firebase, signing, and phone setup
 - `apps/tacnav-mortar-android/` — native app source, wrapper, version catalog,
   dependency-locking instructions, JVM tests, and instrumented Compose tests

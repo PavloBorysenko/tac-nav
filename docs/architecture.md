@@ -10,7 +10,7 @@ This git root is a Local WordPress site. WordPress Core, `wp-config.php`, and ge
 
 The first-party theme is `tacnav`, a child of Twenty Twenty-Five. The first-party plugins are `tacnav-maps` and `tacnav-devices`. `tacnav-devices` depends on `tacnav-maps`; the map plugin owns geo objects and catalog data, while the device plugin owns application provisioning, credentials, mailboxes, push handoff, and Android release metadata. Default WordPress themes `twentytwentythree`, `twentytwentyfour`, and `twentytwentyfive` remain on disk and are not project-owned. Do not document or edit them as custom components.
 
-`.gitignore` allowlists `wp-content/themes/tacnav/`, `wp-content/plugins/tacnav-maps/`, and `wp-content/plugins/tacnav-devices/`, plus Composer autoload files under the map plugin `vendor/` and the guest QR script under `assets/vendor/`. Android source lives under `apps/tacnav-mortar-android/`; generated Gradle output, APKs, app bundles, signing stores, local SDK paths, and Firebase service-account credentials are ignored. There are no must-use plugins.
+`.gitignore` allowlists `wp-content/themes/tacnav/`, `wp-content/plugins/tacnav-maps/`, and `wp-content/plugins/tacnav-devices/`, plus Composer autoload files under the map plugin `vendor/` and the guest QR script under `assets/vendor/`. Android source lives under `apps/tacnav-mortar-android/` and `apps/tacnav-object-android/`, two separate projects that share no code at build time; generated Gradle output, APKs, app bundles, signing stores, local SDK paths, and Firebase service-account credentials are ignored. There are no must-use plugins.
 
 `tacnav` is tiny: phpcs applies to its PHP; do not register PHPStan or PHPUnit paths for the theme. `tacnav-maps` and `tacnav-devices` are not-tiny: PHPStan and PHPUnit paths include both plugins. Theme JavaScript uses `@wordpress/scripts` inside the theme folder.
 
@@ -29,4 +29,5 @@ Do not infer first-party ownership from a plugin or theme merely existing under 
 - `wp-content/plugins/tacnav-maps/` — first-party map hub plugin
 - `wp-content/plugins/tacnav-devices/` — first-party application provisioning and messaging plugin
 - `apps/tacnav-mortar-android/` — first-party native Android mortar application
+- `apps/tacnav-object-android/` — first-party native Android destructible-object application, package `com.tacnav.beacon`
 - `.cursor/rules/wp-agent-harness-scope.mdc` — edit limit: Core and unconfirmed plugins are off-limits

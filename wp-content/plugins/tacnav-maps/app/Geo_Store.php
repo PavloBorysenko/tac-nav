@@ -35,8 +35,8 @@ class Geo_Store {
 		$ok    = $wpdb->query(
 			$wpdb->prepare(
 				'INSERT INTO %i
-				(map_id, kind, geometry, owner_team_id, visible_team_ids, origin, application_id, created_by_user_id, position_accuracy_m, icon_id, title, description, expires_at, created_at, updated_at, spatial_projection)
-				VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %s, NULLIF(%d, 0), %d, NULLIF(%f, -1), NULLIF(%d, 0), %s, %s, NULLIF(%s, \'\'), %s, %s, ST_GeomFromText(%s))',
+				(map_id, kind, geometry, owner_team_id, visible_team_ids, origin, application_id, created_by_user_id, position_accuracy_m, icon_id, title, description, expires_at, created_at, updated_at, spatial_projection, searchable, client_key)
+				VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %s, NULLIF(%d, 0), %d, NULLIF(%f, -1), NULLIF(%d, 0), %s, %s, NULLIF(%s, \'\'), %s, %s, ST_GeomFromText(%s), %d, NULLIF(%s, \'\'))',
 				$table,
 				$row['map_id'],
 				$row['kind'],
@@ -53,7 +53,9 @@ class Geo_Store {
 				$row['expires_at'],
 				$row['created_at'],
 				$row['updated_at'],
-				$prepared['projection_wkt']
+				$prepared['projection_wkt'],
+				$row['searchable'],
+				isset( $data['client_key'] ) ? (string) $data['client_key'] : ''
 			)
 		);
 		if ( false === $ok ) {
@@ -61,6 +63,69 @@ class Geo_Store {
 		}
 
 		return (int) $wpdb->insert_id;
+	}
+
+	/**
+	 * Insert unless this application already stored the same key.
+	 *
+	 * The unique key settles a race between two retries, so a failed insert
+	 * looks the key up again before reporting an error.
+	 *
+	 * @param array<string, mixed> $data Object fields, optionally with client_key.
+	 * @return array{id: int, created: bool}|\WP_Error
+	 */
+	public function insert_once( $data ) {
+		$key            = isset( $data['client_key'] ) ? (string) $data['client_key'] : '';
+		$application_id = isset( $data['application_id'] ) ? (int) $data['application_id'] : 0;
+		$keyed          = '' !== $key && $application_id > 0;
+
+		$existing = $keyed ? $this->find_by_client_key( $application_id, $key ) : null;
+		if ( $existing ) {
+			return array(
+				'id'      => (int) $existing['id'],
+				'created' => false,
+			);
+		}
+
+		$id = $this->insert( $data );
+		if ( is_wp_error( $id ) ) {
+			$existing = $keyed ? $this->find_by_client_key( $application_id, $key ) : null;
+			if ( ! $existing ) {
+				return $id;
+			}
+			return array(
+				'id'      => (int) $existing['id'],
+				'created' => false,
+			);
+		}
+
+		return array(
+			'id'      => $id,
+			'created' => true,
+		);
+	}
+
+	/**
+	 * Fetch the object an application stored under a key.
+	 *
+	 * @param int    $application_id Application ID.
+	 * @param string $key            Idempotency key.
+	 * @return array<string, mixed>|null
+	 */
+	public function find_by_client_key( $application_id, $key ) {
+		global $wpdb;
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT * FROM %i WHERE application_id = %d AND client_key = %s',
+				Activator::table_name(),
+				(int) $application_id,
+				(string) $key
+			),
+			ARRAY_A
+		);
+
+		return $row ? $this->hydrate( $row ) : null;
 	}
 
 	/**
@@ -96,7 +161,7 @@ class Geo_Store {
 		$sql   = 'UPDATE %i SET
 			map_id = %d, kind = %s, geometry = %s, owner_team_id = NULLIF(%d, 0),
 			visible_team_ids = %s, origin = %s, application_id = NULLIF(%d, 0),
-			created_by_user_id = %d, position_accuracy_m = NULLIF(%f, -1),
+			created_by_user_id = %d, position_accuracy_m = NULLIF(%f, -1), searchable = %d,
 			icon_id = NULLIF(%d, 0), title = %s, description = %s,
 			expires_at = NULLIF(%s, \'\'), updated_at = %s,
 			spatial_projection = ST_GeomFromText(%s)
@@ -112,6 +177,7 @@ class Geo_Store {
 			$row['application_id'],
 			$row['created_by_user_id'],
 			$row['position_accuracy_m'],
+			$row['searchable'],
 			$row['icon_id'],
 			$row['title'],
 			$row['description'],
@@ -243,6 +309,7 @@ class Geo_Store {
 				'SELECT id, kind, geometry, position_accuracy_m
 				FROM %i FORCE INDEX (spatial_projection)
 				WHERE map_id = %d
+				AND searchable = 1
 				AND (expires_at IS NULL OR expires_at > %s)
 				AND MBRIntersects(spatial_projection, ST_GeomFromText(%s))
 				ORDER BY id ASC',
@@ -422,6 +489,7 @@ class Geo_Store {
 			'application_id'      => $application_id > 0 ? $application_id : 0,
 			'created_by_user_id'  => isset( $data['created_by_user_id'] ) ? (int) $data['created_by_user_id'] : get_current_user_id(),
 			'position_accuracy_m' => $accuracy,
+			'searchable'          => array_key_exists( 'searchable', $data ) && ! $data['searchable'] ? 0 : 1,
 			'icon_id'             => $icon > 0 ? $icon : null,
 			'title'               => isset( $data['title'] ) ? sanitize_text_field( (string) $data['title'] ) : '',
 			'description'         => isset( $data['description'] ) ? wp_kses_post( (string) $data['description'] ) : '',
@@ -460,6 +528,7 @@ class Geo_Store {
 			'application_id'      => '' === (string) $row['application_id'] ? null : (int) $row['application_id'],
 			'created_by_user_id'  => (int) $row['created_by_user_id'],
 			'position_accuracy_m' => '' === (string) $row['position_accuracy_m'] ? null : (float) $row['position_accuracy_m'],
+			'searchable'          => ! isset( $row['searchable'] ) || '0' !== (string) $row['searchable'],
 			'icon_id'             => '' === (string) $row['icon_id'] ? null : (int) $row['icon_id'],
 			'title'               => (string) $row['title'],
 			'description'         => (string) $row['description'],

@@ -24,9 +24,6 @@ $tacnav_default_map  = $tacnav_draft && ! empty( $tacnav_draft['default_map_id']
 $tacnav_default_team = $tacnav_draft && ! empty( $tacnav_draft['default_team_id'] ) ? (int) $tacnav_draft['default_team_id'] : 0;
 $tacnav_edit_url     = admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNav\Devices\Admin::PAGE );
 ?>
-<style>
-	.tacnav-inline-form { display: inline; margin-left: 0.35rem; }
-</style>
 	<h2><?php echo $tacnav_draft ? esc_html__( 'Edit application definition', 'tacnav-devices' ) : esc_html__( 'Application definition', 'tacnav-devices' ); ?></h2>
 	<p><?php esc_html_e( 'Choose published maps and teams from the catalog. Gameplay fields become the phone’s starting settings at the next activation.', 'tacnav-devices' ); ?></p>
 	<form method="post" action="<?php echo esc_url( $action ); ?>">
@@ -39,7 +36,7 @@ $tacnav_edit_url     = admin_url( 'edit.php?post_type=tacnav_map&page=' . \TacNa
 			<?php if ( ! $tacnav_draft ) : ?>
 				<tr><th><label for="tacnav-app-id"><?php esc_html_e( 'Application ID (update)', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-id" name="id" type="number" min="1"></td></tr>
 			<?php endif; ?>
-			<tr><th><label for="tacnav-app-type"><?php esc_html_e( 'Type', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-type" name="application_type" value="<?php echo esc_attr( $tacnav_draft ? (string) $tacnav_draft['application_type'] : 'mortar' ); ?>" required></td></tr>
+			<tr><th><?php esc_html_e( 'Type', 'tacnav-devices' ); ?></th><td><?php $tacnav_type = $tacnav_draft ? (string) $tacnav_draft['application_type'] : 'mortar'; ?><code><?php echo esc_html( $tacnav_type ); ?></code><input type="hidden" name="application_type" value="<?php echo esc_attr( $tacnav_type ); ?>"></td></tr>
 			<tr><th><label for="tacnav-app-name"><?php esc_html_e( 'Name', 'tacnav-devices' ); ?></label></th><td><input id="tacnav-app-name" name="name" value="<?php echo esc_attr( $tacnav_draft ? (string) $tacnav_draft['name'] : '' ); ?>" required></td></tr>
 			<tr>
 				<th><?php esc_html_e( 'Allowed maps', 'tacnav-devices' ); ?></th>

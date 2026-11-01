@@ -158,7 +158,7 @@ class Catalog {
 			array(
 				'post_type'      => Post_Types::ICON,
 				'post_status'    => 'publish',
-				'posts_per_page' => 100,
+				'posts_per_page' => -1,
 				'orderby'        => 'title',
 				'order'          => 'ASC',
 			)

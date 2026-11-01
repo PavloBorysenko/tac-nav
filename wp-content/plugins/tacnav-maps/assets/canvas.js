@@ -245,6 +245,12 @@
 		};
 	}
 
+	// An iconless object that search never returns is a hint area, so a pin at
+	// its centre would point at a position that is not the object's.
+	function isHintArea( object ) {
+		return object.searchable === false && ! object.icon_id && ( object.kind === 'circle' || object.kind === 'polygon' );
+	}
+
 	function bindLayer( object, layer ) {
 		layer.on( 'click', function ( event ) {
 			window.L.DomEvent.stopPropagation( event );
@@ -276,7 +282,10 @@
 		if ( shape ) {
 			shape.addTo( group );
 		}
-		var pin = iconLatLng( object );
+		var pin = isHintArea( object ) ? null : iconLatLng( object );
+		if ( ! pin && shape && state.showLabels && object.title ) {
+			shape.bindTooltip( escapeHtml( object.title ), { permanent: true, className: 'tacnav-label', direction: 'top', escape: false } );
+		}
 		if ( pin ) {
 			var marker = window.L.marker( pin, { icon: makeDivIcon( object ) } );
 			marker.addTo( group );
@@ -379,7 +388,7 @@
 			map.removeLayer( state.draftIcon );
 			state.draftIcon = null;
 		}
-		if ( ! object || object.kind === 'marker' ) {
+		if ( ! object || object.kind === 'marker' || isHintArea( object ) ) {
 			return;
 		}
 		var pin = iconLatLng( object );
@@ -1088,6 +1097,7 @@
 			title: object.title,
 			description: object.description,
 			icon_id: object.icon_id,
+			searchable: object.searchable,
 			owner_team_id: object.owner_team_id,
 			visible_team_ids: object.visible_team_ids,
 			expires_at: object.expires_at,

@@ -20,7 +20,7 @@ The staff page is a tab shell. Each device application is an `App_Page` listed i
 
 Deactivating this plugin must not disable `tacnav-maps`. Device functionality is unavailable without this plugin, while existing maps and geo objects remain owned by TacNav Maps.
 
-The plugin stores no plaintext activation code or bearer credential. Release metadata contains only package id, version, and APK URL. A staff-uploaded APK may be hosted in uploads and served from public `/tacnav-mortar/` routes. Firebase private credentials are read from an external file and never from a WordPress option.
+The plugin stores no plaintext activation code or bearer credential. Release metadata contains only package id, version, and APK URL. Each application type has its own release metadata. A staff-uploaded APK may be hosted in uploads and served from public `/tacnav-mortar/` or `/tacnav-object/` routes. Firebase private credentials are read from an external file and never from a WordPress option.
 
 ## Implementation references
 
@@ -29,6 +29,7 @@ The plugin stores no plaintext activation code or bearer credential. Release met
 - `wp-content/plugins/tacnav-devices/app/Activator.php` — activation guard and schema-version entry point
 - `wp-content/plugins/tacnav-devices/app/Plugin.php` — REST, administration, maintenance, and integration hook wiring
 - `wp-content/plugins/tacnav-devices/app/Release.php` — APK upload validation, hosted file storage, and public download routes
-- `wp-content/plugins/tacnav-devices/app/Apps/` — application page contract, page list, and Mortar page
+- `wp-content/plugins/tacnav-devices/app/App_Types.php` — known application types and what differs between them
+- `wp-content/plugins/tacnav-devices/app/Apps/` — application page contract, page list, and the Mortar and Object pages
 - `wp-content/plugins/tacnav-devices/templates/admin-shell.php` — staff page wrapper and tab bar
 - `wp-content/plugins/tacnav-devices/composer.json` — PSR-4 namespace mapping

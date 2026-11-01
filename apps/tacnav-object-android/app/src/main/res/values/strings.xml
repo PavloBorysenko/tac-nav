@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tac Nav Object</string>
+    <string name="session_channel">Object status</string>
+    <string name="alert_channel">Object alerts</string>
+    <string name="fcm_channel_name">Tac Nav deliveries</string>
+    <string name="fcm_wake_title">Tac Nav update</string>
+    <string name="fcm_wake_body">Open Tac Nav Object to retrieve a pending delivery.</string>
+</resources>

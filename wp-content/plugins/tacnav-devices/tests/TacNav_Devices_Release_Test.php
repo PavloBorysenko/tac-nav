@@ -9,7 +9,6 @@ use PHPUnit\Framework\TestCase;
 use TacNav\Devices\Release;
 
 require_once __DIR__ . '/bootstrap.php';
-require_once dirname( __DIR__ ) . '/app/Release.php';
 
 /**
  * @covers \TacNav\Devices\Release

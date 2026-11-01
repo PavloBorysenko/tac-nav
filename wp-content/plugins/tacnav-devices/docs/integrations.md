@@ -13,6 +13,8 @@ This plugin owns two stable hooks:
 - `tacnav_maps_application_principal` resolves a bearer-authenticated application principal when called with an empty current context and a `WP_REST_Request`.
 - `tacnav_application_object_saved` accepts a committed geo-object id and its resolved application context so the object can receive mailbox deliveries.
 
+Every application object is bound, including objects that search never returns and permanent wrecks, so a binding alone does not mean an object can be hit. An application decides which of its objects count.
+
 The concurrent Maps implementation should use those hooks at its REST/service boundary. If this plugin is inactive, Maps should receive no application context and continue its existing staff/player/guest behavior. Open the TacNav Maps [catalog](../../tacnav-maps/docs/catalog.md) only when this integrations row matched.
 
 ## Implementation references

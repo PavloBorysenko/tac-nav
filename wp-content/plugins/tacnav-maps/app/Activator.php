@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Activator {
 
-	const DB_VERSION = '4';
+	const DB_VERSION = '5';
 
 	/**
 	 * Run on plugin activation.
@@ -83,6 +83,8 @@ class Activator {
 			application_id bigint(20) unsigned DEFAULT NULL,
 			created_by_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			position_accuracy_m decimal(10,3) unsigned DEFAULT NULL,
+			searchable tinyint(1) NOT NULL DEFAULT 1,
+			client_key varchar(64) DEFAULT NULL,
 			icon_id bigint(20) unsigned DEFAULT NULL,
 			title text NOT NULL,
 			description longtext NOT NULL,
@@ -90,6 +92,7 @@ class Activator {
 			created_at datetime NOT NULL,
 			updated_at datetime NOT NULL,
 			PRIMARY KEY  (id),
+			UNIQUE KEY client_key (application_id,client_key),
 			KEY map_id (map_id),
 			KEY owner_team_id (owner_team_id),
 			KEY application_id (application_id),

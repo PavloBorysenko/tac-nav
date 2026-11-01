@@ -15,11 +15,12 @@ defined( 'ABSPATH' ) || exit;
 class Application_Store {
 
 	/**
-	 * List all definitions for staff administration.
+	 * List definitions for staff administration.
 	 *
+	 * @param string $type Known type to keep, or empty for every definition.
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function all() {
+	public function all( $type = '' ) {
 		global $wpdb;
 
 		$ids = $wpdb->get_col(
@@ -32,7 +33,7 @@ class Application_Store {
 				$out[] = $item;
 			}
 		}
-		return $out;
+		return '' === $type ? $out : App_Types::filter_rows( $out, $type );
 	}
 
 	/**
@@ -57,13 +58,25 @@ class Application_Store {
 			return $valid;
 		}
 
+		$id     = isset( $data['id'] ) ? (int) $data['id'] : 0;
+		$stored = $id > 0 ? $this->get( $id ) : null;
+		if ( $id > 0 && ! $stored ) {
+			return new \WP_Error( 'tacnav_application_missing', __( 'Application not found.', 'tacnav-devices' ), array( 'status' => 404 ) );
+		}
+
 		$type = isset( $data['application_type'] ) ? sanitize_key( (string) $data['application_type'] ) : '';
 		$name = isset( $data['name'] ) ? sanitize_text_field( (string) $data['name'] ) : '';
-		if ( '' === $type || '' === $name ) {
+		if ( '' === $name ) {
 			return new \WP_Error( 'tacnav_application_required', __( 'Application type and name are required.', 'tacnav-devices' ) );
 		}
-		$reference = Validation::reference_settings(
-			isset( $data['reference_settings'] ) ? $data['reference_settings'] : array()
+		$type = App_Types::resolve_save_type( $type, $stored ? (string) $stored['application_type'] : null );
+		if ( is_wp_error( $type ) ) {
+			return $type;
+		}
+		$reference = App_Types::reference_settings(
+			$type,
+			isset( $data['reference_settings'] ) ? $data['reference_settings'] : array(),
+			$name
 		);
 		if ( is_wp_error( $reference ) ) {
 			return $reference;
@@ -79,10 +92,6 @@ class Application_Store {
 			'default_team_id'    => $default_team > 0 ? $default_team : null,
 			'updated_at'         => $now,
 		);
-		$id     = isset( $data['id'] ) ? (int) $data['id'] : 0;
-		if ( $id > 0 && ! $this->get( $id ) ) {
-			return new \WP_Error( 'tacnav_application_missing', __( 'Application not found.', 'tacnav-devices' ), array( 'status' => 404 ) );
-		}
 
 		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $id > 0 ) {
@@ -163,10 +172,11 @@ class Application_Store {
 	/**
 	 * Consume an activation and replace the active phone.
 	 *
-	 * @param string $code One-time code.
+	 * @param string $code       One-time code.
+	 * @param string $package_id Requesting Android package.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public function activate( $code ) {
+	public function activate( $code, $package_id = '' ) {
 		global $wpdb;
 
 		$tables = Activator::tables();
@@ -182,6 +192,12 @@ class Application_Store {
 		);
 		if ( ! $row ) {
 			return new \WP_Error( 'tacnav_activation_invalid', __( 'Activation code is invalid, expired, or already used.', 'tacnav-devices' ), array( 'status' => 401 ) );
+		}
+
+		// Checked before the code is consumed so a QR scanned in the wrong application stays usable.
+		$application = $this->get( (int) $row['application_id'] );
+		if ( ! $application || ! App_Types::package_matches( (string) $application['application_type'], $package_id ) ) {
+			return new \WP_Error( 'tacnav_activation_package', __( 'This activation code is for a different application.', 'tacnav-devices' ), array( 'status' => 403 ) );
 		}
 
 		$plain = self::new_secret();
@@ -215,7 +231,6 @@ class Application_Store {
 		$installation_id = (int) $wpdb->insert_id;
 		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
-		$application = $this->get( (int) $row['application_id'] );
 		return $this->activation_result( $application, $installation_id, $plain );
 	}
 

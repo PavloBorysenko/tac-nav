@@ -150,7 +150,7 @@ class REST {
 	 * @return \WP_REST_Response|\WP_Error
 	 */
 	public static function activate( $request ) {
-		$result = ( new Application_Store() )->activate( (string) $request->get_param( 'code' ) );
+		$result = ( new Application_Store() )->activate( (string) $request->get_param( 'code' ), sanitize_text_field( (string) $request->get_param( 'package_id' ) ) );
 		return is_wp_error( $result ) ? $result : rest_ensure_response( $result );
 	}
 
@@ -240,12 +240,17 @@ class REST {
 	}
 
 	/**
-	 * Public release metadata safe for devices.
+	 * Public release metadata safe for devices, for the caller's own application.
 	 *
-	 * @return \WP_REST_Response
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response|\WP_Error
 	 */
-	public static function release() {
-		return rest_ensure_response( Admin::release_metadata() );
+	public static function release( $request ) {
+		$context = Application_Context::resolve( $request );
+		if ( is_wp_error( $context ) ) {
+			return $context;
+		}
+		return rest_ensure_response( Admin::release_metadata( (string) $context['type'] ) );
 	}
 
 	/**
