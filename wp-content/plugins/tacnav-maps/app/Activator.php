@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Activator {
 
-	const DB_VERSION = '5';
+	const DB_VERSION = '7';
 
 	/**
 	 * Run on plugin activation.
@@ -23,6 +23,7 @@ class Activator {
 	 */
 	public static function activate() {
 		self::create_table();
+		self::migrate_searchable();
 		self::install_spatial_or_fail();
 		self::migrate_quick_presets();
 		Roles::install();
@@ -52,6 +53,7 @@ class Activator {
 		}
 
 		self::create_table();
+		self::migrate_searchable();
 		self::install_spatial_or_fail();
 		self::migrate_quick_presets();
 		Roles::install();
@@ -69,10 +71,54 @@ class Activator {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		$table   = self::table_name();
-		$charset = $wpdb->get_charset_collate();
+		dbDelta( self::schema_sql( self::table_name(), $wpdb->get_charset_collate() ) );
+	}
 
-		$sql = "CREATE TABLE {$table} (
+	/**
+	 * Replace the old search flag with roles, then drop it.
+	 *
+	 * dbDelta never drops a column, so this runs explicit SQL once while the
+	 * column still exists.
+	 *
+	 * @return void
+	 */
+	private static function migrate_searchable() {
+		global $wpdb;
+
+		$table = self::table_name();
+		if ( ! Spatial_Schema::column_exists( $table, 'searchable' ) ) {
+			return;
+		}
+		foreach ( self::searchable_migration_sql( $table ) as $sql ) {
+			$wpdb->query( $sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.SchemaChange -- fixed migration SQL on the plugin table.
+		}
+	}
+
+	/**
+	 * Statements that turn legacy hint areas into role `hint` and drop the flag.
+	 *
+	 * A not-searchable iconless circle or polygon was a hint area. Every other
+	 * not-searchable object, such as a wreck with an icon, becomes ordinary.
+	 *
+	 * @param string $table Table name.
+	 * @return array<int, string>
+	 */
+	public static function searchable_migration_sql( $table ) {
+		return array(
+			"UPDATE {$table} SET role = 'hint' WHERE searchable = 0 AND icon_id IS NULL AND kind IN ('circle', 'polygon') AND role = ''",
+			"ALTER TABLE {$table} DROP COLUMN searchable",
+		);
+	}
+
+	/**
+	 * Geo-object table definition for dbDelta.
+	 *
+	 * @param string $table   Table name.
+	 * @param string $charset Charset and collation clause.
+	 * @return string
+	 */
+	public static function schema_sql( $table, $charset ) {
+		return "CREATE TABLE {$table} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			map_id bigint(20) unsigned NOT NULL,
 			kind varchar(20) NOT NULL,
@@ -83,7 +129,7 @@ class Activator {
 			application_id bigint(20) unsigned DEFAULT NULL,
 			created_by_user_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			position_accuracy_m decimal(10,3) unsigned DEFAULT NULL,
-			searchable tinyint(1) NOT NULL DEFAULT 1,
+			role varchar(32) NOT NULL DEFAULT '',
 			client_key varchar(64) DEFAULT NULL,
 			icon_id bigint(20) unsigned DEFAULT NULL,
 			title text NOT NULL,
@@ -98,8 +144,6 @@ class Activator {
 			KEY application_id (application_id),
 			KEY expires_at (expires_at)
 		) {$charset};";
-
-		dbDelta( $sql );
 	}
 
 	/**

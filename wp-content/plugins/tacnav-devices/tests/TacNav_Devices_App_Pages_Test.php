@@ -78,7 +78,7 @@ class TacNav_Devices_App_Pages_Test extends TestCase {
 	public function test_object_is_a_tab_after_mortar() {
 		$pages = App_Pages::all();
 
-		$this->assertCount( 2, $pages );
+		$this->assertCount( 3, $pages );
 		$this->assertSame( 'object', $pages[1]->slug() );
 		$this->assertSame( 'Object', $pages[1]->label() );
 		$this->assertSame( $pages[1], App_Pages::resolve( $pages, 'object' ) );

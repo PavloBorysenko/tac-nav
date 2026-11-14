@@ -146,7 +146,6 @@ class TacNav_Maps_Test_Wpdb {
 			'expires_at'          => null,
 			'created_at'          => '2026-01-01 00:00:00',
 			'updated_at'          => '2026-01-01 00:00:00',
-			'searchable'          => '0',
 		);
 	}
 
@@ -220,53 +219,77 @@ class TacNav_Maps_Geo_Store_Test extends TestCase {
 	}
 
 	/**
-	 * Search uses the spatial index and emits only the contract fields.
+	 * Search uses the spatial index and returns whole stored objects.
 	 */
-	public function test_search_is_map_scoped_unexpired_indexed_and_minimal() {
+	public function test_search_is_map_scoped_unexpired_indexed_and_whole() {
 		$this->database->results = array(
-			array(
-				'id'                  => '8',
-				'kind'                => 'marker',
-				'geometry'            => '{"lat":50.0001,"lng":30}',
-				'position_accuracy_m' => '6.500',
-			),
-		);
-
-		$results = ( new Geo_Store() )->search(
-			4,
-			'circle',
-			array(
-				'lat'    => 50,
-				'lng'    => 30,
-				'radius' => 100,
-			),
-			1700000000
-		);
-
-		$this->assertSame(
-			array(
+			array_merge(
+				$this->database_row( 'marker', array( 'lat' => 50.0001, 'lng' => 30 ) ),
 				array(
-					'id'                  => 8,
-					'kind'                => 'marker',
-					'geometry'            => array( 'lat' => 50.0001, 'lng' => 30 ),
-					'position_accuracy_m' => 6.5,
-				),
+					'id'               => '8',
+					'visible_team_ids' => '[7]',
+					'role'             => '',
+					'client_key'       => 'secret-key',
+				)
 			),
-			$results
 		);
+
+		$results = $this->search_circle( null );
+
+		$this->assertCount( 1, $results );
+		$this->assertSame( 8, $results[0]['id'] );
+		$this->assertSame( 'marker', $results[0]['kind'] );
+		$this->assertSame( array( 'lat' => 50.0001, 'lng' => 30 ), $results[0]['geometry'] );
+		$this->assertSame( 6.5, $results[0]['position_accuracy_m'] );
+		$this->assertSame( '', $results[0]['role'] );
+		$this->assertSame( 7, $results[0]['owner_team_id'] );
+		$this->assertSame( array( 7 ), $results[0]['visible_team_ids'] );
+		$this->assertSame( 'application', $results[0]['origin'] );
+		$this->assertSame( 9, $results[0]['application_id'] );
+		$this->assertSame( '2026-01-01 00:00:00', $results[0]['updated_at'] );
+		$this->assertArrayNotHasKey( 'client_key', $results[0] );
+		$this->assertArrayNotHasKey( 'distance_m', $results[0] );
 		$this->assertStringContainsString( 'FORCE INDEX (spatial_projection)', $this->database->last_command['query'] );
 		$this->assertStringContainsString( 'map_id = %d', $this->database->last_command['query'] );
 		$this->assertStringContainsString( 'expires_at IS NULL OR expires_at > %s', $this->database->last_command['query'] );
 		$this->assertStringNotContainsString( 'visible_team_ids', $this->database->last_command['query'] );
-		$this->assertArrayNotHasKey( 'distance_m', $results[0] );
-		$this->assertArrayNotHasKey( 'application_id', $results[0] );
 	}
 
 	/**
-	 * Search never selects a row excluded from targeting.
+	 * Without a role every role matches; a role narrows to exact matches.
 	 */
-	public function test_search_excludes_not_searchable_rows() {
-		( new Geo_Store() )->search(
+	public function test_search_role_filter() {
+		$this->search_circle( null );
+		$this->assertStringNotContainsString( 'role = %s', $this->database->last_command['query'] );
+
+		$this->search_circle( '' );
+		$this->assertStringContainsString( 'AND role = %s', $this->database->last_command['query'] );
+		$this->assertSame( '', end( $this->database->last_command['args'] ) );
+
+		$this->search_circle( 'minefield' );
+		$this->assertStringContainsString( 'AND role = %s', $this->database->last_command['query'] );
+		$this->assertSame( 'minefield', end( $this->database->last_command['args'] ) );
+	}
+
+	/**
+	 * An unregistered role is refused before the query.
+	 */
+	public function test_search_refuses_unknown_role() {
+		$result = $this->search_circle( 'minefeild' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'tacnav_geo_role', $result->get_error_code() );
+		$this->assertSame( array(), $this->database->last_command );
+	}
+
+	/**
+	 * Search a 100 metre circle.
+	 *
+	 * @param string|null $role Role filter.
+	 * @return array<int, array<string, mixed>>|\WP_Error
+	 */
+	private function search_circle( $role ) {
+		return ( new Geo_Store() )->search(
 			4,
 			'circle',
 			array(
@@ -274,37 +297,53 @@ class TacNav_Maps_Geo_Store_Test extends TestCase {
 				'lng'    => 30,
 				'radius' => 100,
 			),
-			1700000000
+			1700000000,
+			$role
 		);
-
-		$this->assertStringContainsString( 'AND searchable = 1', $this->database->last_command['query'] );
 	}
 
 	/**
-	 * A row stored before the flag existed stays searchable, and an explicit zero does not.
+	 * Without a role, search returns hint areas, wrecks, minefields, and ordinary objects.
 	 */
-	public function test_flag_defaults_to_searchable_and_survives_hydration() {
-		$legacy              = $this->database_row( 'marker', array( 'lat' => 50, 'lng' => 30 ) );
-		$this->database->row = $legacy;
-		$this->assertTrue( ( new Geo_Store() )->get( 41 )['searchable'] );
+	public function test_search_without_role_returns_every_kind_of_object() {
+		$area = array( 'lat' => 50, 'lng' => 30, 'radius' => 50 );
+		$rows = array(
+			array( '1', 'circle', $area, 'hint', null ),
+			array( '2', 'circle', $area, '', '9' ),
+			array( '3', 'circle', $area, 'minefield', null ),
+			array( '4', 'marker', array( 'lat' => 50.0001, 'lng' => 30 ), '', null ),
+		);
+		foreach ( $rows as $row ) {
+			$this->database->results[] = array_merge(
+				$this->database_row( $row[1], $row[2] ),
+				array(
+					'id'      => $row[0],
+					'role'    => $row[3],
+					'icon_id' => $row[4],
+				)
+			);
+		}
 
-		$this->database->row = array_merge( $legacy, array( 'searchable' => '0' ) );
-		$this->assertFalse( ( new Geo_Store() )->get( 41 )['searchable'] );
+		$results = $this->search_circle( null );
+
+		$this->assertSame( array( 1, 2, 3, 4 ), array_column( $results, 'id' ) );
+		$this->assertSame( array( 'hint', '', 'minefield', '' ), array_column( $results, 'role' ) );
+		$this->assertStringNotContainsString( 'searchable', $this->database->last_command['query'] );
 	}
 
 	/**
-	 * A write that omits the flag, such as a staff edit, keeps the stored value.
+	 * Writes never name the removed search flag, and an update never touches the key.
 	 */
-	public function test_update_without_the_flag_preserves_it() {
-		$this->database->row = array_merge(
-			$this->database_row( 'circle', array( 'lat' => 50, 'lng' => 30, 'radius' => 25 ) ),
-			array( 'searchable' => '0' )
-		);
+	public function test_writes_do_not_use_the_removed_flag() {
+		$store = new Geo_Store();
+		$store->insert( $this->keyed_object( 9, '' ) );
+		$this->assertStringNotContainsString( 'searchable', $this->database->last_command['query'] );
 
-		$this->assertTrue( ( new Geo_Store() )->update( 41, array( 'title' => 'Renamed' ) ) );
-		$this->assertStringContainsString( 'searchable = %d', $this->database->last_command['query'] );
-		$this->assertContains( 0, $this->database->last_command['args'] );
+		$this->database->row = $this->database_row( 'circle', array( 'lat' => 50, 'lng' => 30, 'radius' => 25 ) );
+		$this->assertTrue( $store->update( 41, array( 'title' => 'Renamed' ) ) );
+		$this->assertStringNotContainsString( 'searchable', $this->database->last_command['query'] );
 		$this->assertStringNotContainsString( 'client_key', $this->database->last_command['query'] );
+		$this->assertArrayNotHasKey( 'searchable', $store->get( 41 ) );
 	}
 
 	/**
@@ -360,6 +399,90 @@ class TacNav_Maps_Geo_Store_Test extends TestCase {
 	}
 
 	/**
+	 * A create stores the role it names.
+	 */
+	public function test_create_stores_role() {
+		$data         = $this->keyed_object( 9, '' );
+		$data['kind'] = 'polygon';
+		$data['role'] = 'minefield';
+		$data['geometry'] = array( 'path' => array( array( 50, 30 ), array( 50, 30.001 ), array( 50.001, 30 ) ) );
+
+		$this->assertSame( 41, ( new Geo_Store() )->insert( $data ) );
+		$this->assertStringContainsString( 'role, client_key', $this->database->last_command['query'] );
+		$this->assertContains( 'minefield', $this->database->last_command['args'] );
+	}
+
+	/**
+	 * A create without a role is ordinary.
+	 */
+	public function test_create_without_role_is_ordinary() {
+		( new Geo_Store() )->insert( $this->keyed_object( 9, '' ) );
+
+		$args = $this->database->last_command['args'];
+		$this->assertSame( '', $args[ count( $args ) - 2 ] );
+	}
+
+	/**
+	 * An update that omits the role keeps the stored one.
+	 */
+	public function test_update_without_role_keeps_it() {
+		$this->database->row = array_merge(
+			$this->database_row( 'circle', array( 'lat' => 50, 'lng' => 30, 'radius' => 25 ) ),
+			array( 'role' => 'hint' )
+		);
+
+		$this->assertTrue( ( new Geo_Store() )->update( 41, array( 'title' => 'Renamed' ) ) );
+		$this->assertStringContainsString( 'role = %s', $this->database->last_command['query'] );
+		$this->assertContains( 'hint', $this->database->last_command['args'] );
+		$this->assertSame( 'hint', ( new Geo_Store() )->get( 41 )['role'] );
+	}
+
+	/**
+	 * An unregistered role is refused before any write.
+	 */
+	public function test_unknown_role_is_refused() {
+		$data         = $this->keyed_object( 9, '' );
+		$data['role'] = 'minefeild';
+
+		$result = ( new Geo_Store() )->insert( $data );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'tacnav_geo_role', $result->get_error_code() );
+		$this->assertSame( 0, $this->database->inserts );
+	}
+
+	/**
+	 * A role the kind does not allow is refused, also on update.
+	 */
+	public function test_role_not_allowed_for_kind_is_refused() {
+		$data         = $this->keyed_object( 9, '' );
+		$data['role'] = 'minefield';
+		$this->assertSame( 'tacnav_geo_role', ( new Geo_Store() )->insert( $data )->get_error_code() );
+
+		$this->database->row = $this->database_row( 'marker', array( 'lat' => 50, 'lng' => 30 ) );
+		$result              = ( new Geo_Store() )->update( 41, array( 'role' => 'minefield' ) );
+
+		$this->assertSame( 'tacnav_geo_role', $result->get_error_code() );
+		$this->assertSame( array(), $this->database->last_command );
+	}
+
+	/**
+	 * An application update sent with a stale stamp is refused and writes nothing.
+	 */
+	public function test_stale_update_stamp_is_a_conflict() {
+		$this->database->row = array_merge(
+			$this->database_row( 'polygon', array( 'path' => array( array( 50, 30 ), array( 50, 30.001 ), array( 50.001, 30 ) ) ) ),
+			array( 'updated_at' => '2026-01-01 00:00:05' )
+		);
+
+		$result = ( new Geo_Store() )->update( 41, array( 'visible_team_ids' => array( 7, 8 ) ), '2026-01-01 00:00:00' );
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'tacnav_geo_conflict', $result->get_error_code() );
+		$this->assertSame( array(), $this->database->last_command );
+	}
+
+	/**
 	 * Object fixture with an idempotency key.
 	 *
 	 * @param int    $application_id Application.
@@ -375,7 +498,6 @@ class TacNav_Maps_Geo_Store_Test extends TestCase {
 			'origin'           => 'application',
 			'application_id'   => $application_id,
 			'owner_team_id'    => 7,
-			'searchable'       => false,
 			'client_key'       => $key,
 		);
 	}

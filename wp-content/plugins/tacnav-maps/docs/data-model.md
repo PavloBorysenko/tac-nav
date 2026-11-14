@@ -16,9 +16,19 @@ Icon meta: `tacnav_availability` (`staff`, `player`, `both`). The file is the fe
 
 Player user meta: `tacnav_team_id` (one team, or empty), `tacnav_avatar_id` (attachment), `tacnav_self_points` (map id to the current self-point object id).
 
-Geo row fields: `kind` (`marker`, `polyline`, `polygon`, `circle`), canonical `geometry` JSON, `owner_team_id` (empty = neutral), `visible_team_ids` JSON (empty = all), `origin` (`staff`, `team`, or `application`), nullable `application_id`, nullable `position_accuracy_m`, `searchable`, nullable `client_key`, `icon_id`, `title`, `description`, and absolute UTC `expires_at`. Missing or deleted icons fall back to the default marker.
+Geo row fields: `kind` (`marker`, `polyline`, `polygon`, `circle`), canonical `geometry` JSON, `owner_team_id` (empty = neutral), `visible_team_ids` JSON (empty = all), `origin` (`staff`, `team`, or `application`), nullable `application_id`, nullable `position_accuracy_m`, `role`, nullable `client_key`, `icon_id`, `title`, `description`, and absolute UTC `expires_at`. Missing or deleted icons fall back to the default marker.
 
-`searchable` defaults to 1. A row with 0 is drawn for its normal audience but never returned by application search. Only application writes set it, and an update that omits it keeps the stored value. `client_key` is the optional idempotency key of an application create. It is unique per `application_id`, is never returned in object lists, and is not changed by updates. Database version 5 adds both columns, so existing rows stay searchable.
+`client_key` is the optional idempotency key of an application create. It is unique per `application_id`, is never returned in object lists or search results, and is not changed by updates. Database version 5 added it.
+
+`role` is `varchar(32)`, defaults to `''` (an ordinary object), and has no index, because the role filter only narrows rows the spatial index already selected. Database version 6 adds it, so every existing row is ordinary. Database version 7 gives role `hint` to every row that had the old `searchable = 0` flag, no icon, and kind circle or polygon, then drops the `searchable` column, so application search now returns every unexpired intersecting object and each application decides which hits count. The closed registry lives in `Object_Roles` and can be extended through filter `tacnav_geo_object_roles`:
+
+| Slug | Label | Kinds | Staff may assign |
+| --- | --- | --- | --- |
+| `''` | Object | all | yes |
+| `minefield` | Minefield | circle, polygon | yes |
+| `hint` | Hint area | circle, polygon | no |
+
+`Geo_Store` validates the role on the merged row of every create and update, so an unregistered role or a role the kind does not allow fails with `400 tacnav_geo_role`. A write that omits the role keeps the stored one. Player writes never carry a role. The server stores and filters roles but never acts on them.
 
 `spatial_projection` is a non-null MySQL/MariaDB `GEOMETRY` generated from canonical JSON and protected by a spatial index. Markers project to points, polylines to line strings, polygons to polygons, and circles to a 32-point envelope used only for candidate selection. Versioned migration SQL capability-probes InnoDB geometry/index support, backfills every valid existing row without changing canonical JSON, verifies no null projection remains, and then adds the spatial index. Activation or upgrade fails clearly if that indexed plan is unavailable; there is no JSON-scan fallback. Creates and updates write canonical JSON and projection in one SQL statement.
 

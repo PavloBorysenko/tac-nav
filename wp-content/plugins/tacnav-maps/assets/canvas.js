@@ -245,10 +245,46 @@
 		};
 	}
 
-	// An iconless object that search never returns is a hint area, so a pin at
-	// its centre would point at a position that is not the object's.
+	// A hint area surrounds an object somewhere inside it, so a pin at its
+	// centre would point at a position that is not the object's.
 	function isHintArea( object ) {
-		return object.searchable === false && ! object.icon_id && ( object.kind === 'circle' || object.kind === 'polygon' );
+		return object.role === 'hint';
+	}
+
+	function roleEntry( slug ) {
+		var found = null;
+		( cfg.roles || [] ).forEach( function ( role ) {
+			if ( role.slug === slug ) {
+				found = role;
+			}
+		} );
+		return found;
+	}
+
+	// Staff choose a purpose when the registry offers a non-ordinary role for
+	// this kind. A role staff may not assign is shown read-only and left out of
+	// the payload, so the save keeps it.
+	function purposeHtml( object ) {
+		var current = object.role || '';
+		var offered = ( cfg.roles || [] ).some( function ( role ) {
+			return role.slug !== '' && role.assignable && ( role.kinds || [] ).indexOf( object.kind ) !== -1;
+		} );
+		if ( ! offered && current === '' ) {
+			return '';
+		}
+		var entry = roleEntry( current );
+		var html = '<label>' + escapeHtml( strings.purpose ) + '</label>';
+		if ( current !== '' && ( ! entry || ! entry.assignable ) ) {
+			return html + '<p data-role-fixed>' + escapeHtml( entry ? entry.label : current ) + '</p>';
+		}
+		html += '<select data-f="role">';
+		( cfg.roles || [] ).forEach( function ( role ) {
+			if ( ! role.assignable || ( role.kinds || [] ).indexOf( object.kind ) === -1 ) {
+				return;
+			}
+			html += '<option value="' + escapeHtml( role.slug ) + '"' + ( role.slug === current ? ' selected' : '' ) + '>' + escapeHtml( role.label ) + '</option>';
+		} );
+		return html + '</select>';
 	}
 
 	function bindLayer( object, layer ) {
@@ -858,6 +894,7 @@
 		html += '<label>' + escapeHtml( strings.description ) + '</label><textarea data-f="description">' + escapeHtml( object.description || '' ) + '</textarea>';
 		html += iconPickerHtml( object.icon_id );
 		if ( cfg.mode !== 'player' ) {
+			html += purposeHtml( object );
 			html += '<label>' + escapeHtml( strings.belonging ) + '</label><select data-f="owner_team_id"><option value="0">' + escapeHtml( strings.neutral ) + '</option>';
 			teams.forEach( function ( team ) {
 				html += '<option value="' + escapeHtml( team.id ) + '"' + ( Number( object.owner_team_id ) === Number( team.id ) ? ' selected' : '' ) + '>' + escapeHtml( team.title ) + '</option>';
@@ -937,6 +974,10 @@
 				visible_team_ids: visible,
 				updated_at: object.updated_at || '',
 			};
+			var roleSelect = sheet.querySelector( '[data-f="role"]' );
+			if ( roleSelect ) {
+				payload.role = roleSelect.value;
+			}
 			var ttlValue = sheet.querySelector( '[data-f="ttl_seconds"]' ).value;
 			if ( ttlValue !== '' ) {
 				payload.ttl_seconds = Number( ttlValue );
@@ -1097,7 +1138,7 @@
 			title: object.title,
 			description: object.description,
 			icon_id: object.icon_id,
-			searchable: object.searchable,
+			role: object.role,
 			owner_team_id: object.owner_team_id,
 			visible_team_ids: object.visible_team_ids,
 			expires_at: object.expires_at,

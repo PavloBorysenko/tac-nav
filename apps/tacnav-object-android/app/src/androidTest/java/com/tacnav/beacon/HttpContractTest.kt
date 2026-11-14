@@ -82,7 +82,7 @@ class HttpContractTest {
         visibleTeamIds = emptyList(),
         ttlSeconds = 0,
         positionAccuracyMetres = 6.5,
-        searchable = false,
+        role = "hint",
         idempotencyKey = "wreck-1",
     )
 
@@ -104,7 +104,8 @@ class HttpContractTest {
         assertEquals("Guard it", sent.getString("description"))
         assertEquals(0, sent.getInt("ttl_seconds"))
         assertEquals(13, sent.getInt("icon_id"))
-        assertFalse(sent.getBoolean("searchable"))
+        assertEquals("hint", sent.getString("role"))
+        assertFalse(sent.has("searchable"))
         assertEquals("wreck-1", sent.getString("idempotency_key"))
     }
 
@@ -115,9 +116,11 @@ class HttpContractTest {
             request.copy(
                 geometry = Geometry.Polygon(listOf(Coordinate(50.0, 30.0), Coordinate(50.1, 30.1))),
                 idempotencyKey = null,
+                role = null,
             ),
         )
         val sent = server.lastBody()
+        assertFalse(sent.has("role"))
         assertEquals("polygon", sent.getString("kind"))
         assertEquals(50.1, sent.getJSONObject("geometry").getJSONArray("path").getJSONArray(1).getDouble(0), 0.0)
         assertFalse(sent.has("idempotency_key"))

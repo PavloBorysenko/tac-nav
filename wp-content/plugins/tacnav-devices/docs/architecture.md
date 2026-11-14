@@ -30,6 +30,6 @@ The plugin stores no plaintext activation code or bearer credential. Release met
 - `wp-content/plugins/tacnav-devices/app/Plugin.php` — REST, administration, maintenance, and integration hook wiring
 - `wp-content/plugins/tacnav-devices/app/Release.php` — APK upload validation, hosted file storage, and public download routes
 - `wp-content/plugins/tacnav-devices/app/App_Types.php` — known application types and what differs between them
-- `wp-content/plugins/tacnav-devices/app/Apps/` — application page contract, page list, and the Mortar and Object pages
+- `wp-content/plugins/tacnav-devices/app/Apps/` — application page contract, page list, and the Mortar, Object, and Sapper pages
 - `wp-content/plugins/tacnav-devices/templates/admin-shell.php` — staff page wrapper and tab bar
 - `wp-content/plugins/tacnav-devices/composer.json` — PSR-4 namespace mapping

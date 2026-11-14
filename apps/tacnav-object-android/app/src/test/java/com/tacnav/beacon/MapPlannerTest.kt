@@ -43,7 +43,7 @@ class MapPlannerTest {
         rig.deploy()
         val op = rig.writeNow() as MapOp.WriteObject
         assertEquals(listOf(CONTEXT.teamId), op.request.visibleTeamIds)
-        assertTrue(op.request.searchable)
+        assertNull(op.request.role)
         assertEquals("Guard it\nDeploying", op.request.description)
         assertEquals(60L, op.request.ttlSeconds)
     }
@@ -146,7 +146,7 @@ class MapPlannerTest {
         val area = rig.writeNow() as MapOp.WriteArea
         assertEquals("Antenna area", area.request.title)
         assertEquals(emptyList<Long>(), area.request.visibleTeamIds)
-        assertFalse(area.request.searchable)
+        assertEquals("hint", area.request.role)
         assertNull(area.request.iconId)
         assertEquals("Active 0 min", area.request.description)
         val circle = area.request.geometry as Geometry.Circle
@@ -211,7 +211,7 @@ class MapPlannerTest {
         assertEquals(13L, op.request.iconId)
         assertEquals(emptyList<Long>(), op.request.visibleTeamIds)
         assertEquals(0L, op.request.ttlSeconds)
-        assertFalse(op.request.searchable)
+        assertNull(op.request.role)
         assertEquals("key-0", op.request.idempotencyKey)
         assertTrue(op.request.geometry is Geometry.Circle)
     }

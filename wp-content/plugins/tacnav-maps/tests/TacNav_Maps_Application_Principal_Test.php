@@ -56,9 +56,9 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 	}
 
 	/**
-	 * Applications edit only ordinary objects carrying their own origin id.
+	 * Applications edit any object except a player's self-point.
 	 */
-	public function test_application_can_edit_only_its_own_objects() {
+	public function test_application_can_edit_any_object_except_self_points() {
 		$viewer = Application_Principal::viewer(
 			array(
 				'application_id' => 9,
@@ -67,9 +67,132 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 		);
 
 		$this->assertTrue( Access::default_editable( array( 'origin' => 'application', 'application_id' => 9 ), $viewer ) );
-		$this->assertFalse( Access::default_editable( array( 'origin' => 'application', 'application_id' => 10 ), $viewer ) );
-		$this->assertFalse( Access::default_editable( array( 'origin' => 'team', 'owner_team_id' => 7 ), $viewer ) );
-		$this->assertFalse( Access::default_editable( array( 'origin' => 'staff', 'owner_team_id' => 7 ), $viewer ) );
+		$this->assertTrue( Access::default_editable( array( 'origin' => 'application', 'application_id' => 10 ), $viewer ) );
+		$this->assertTrue( Access::default_editable( array( 'origin' => 'team', 'owner_team_id' => 8 ), $viewer ) );
+		$this->assertTrue( Access::default_editable( array( 'origin' => 'staff', 'owner_team_id' => null ), $viewer ) );
+		$this->assertFalse(
+			Access::default_editable(
+				array(
+					'origin'        => 'team',
+					'owner_team_id' => 7,
+					'self_point'    => true,
+				),
+				$viewer
+			)
+		);
+	}
+
+	/**
+	 * An update with only a lifetime changes only the expiry.
+	 */
+	public function test_application_update_with_only_ttl_changes_only_expiry() {
+		$payload = Application_Write::normalize(
+			array( 'ttl_seconds' => 1 ),
+			array( 'id' => 4, 'team_ids' => array( 7, 8 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			false,
+			1700000000
+		);
+
+		$this->assertSame( array( 'expires_at' => gmdate( 'Y-m-d H:i:s', 1700000001 ) ), $payload );
+	}
+
+	/**
+	 * Another team's visibility edit keeps the stored belonging and creator.
+	 */
+	public function test_application_update_never_restamps_belonging() {
+		$payload = Application_Write::normalize(
+			array(
+				'visible_team_ids' => array( 8, 7 ),
+				'updated_at'       => '2026-01-01 00:00:00',
+				'owner_team_id'    => 7,
+				'origin'           => 'staff',
+				'application_id'   => 9,
+			),
+			array( 'id' => 4, 'team_ids' => array( 7, 8 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			false,
+			1700000000
+		);
+
+		$this->assertSame( array( 'visible_team_ids' => array( 8, 7 ) ), $payload );
+	}
+
+	/**
+	 * A full Mortar-style body updates every object field it sends.
+	 */
+	public function test_full_application_update_writes_every_sent_field() {
+		global $tacnav_test_post_types;
+		$tacnav_test_post_types[55] = Post_Types::ICON;
+
+		$payload = Application_Write::normalize(
+			array(
+				'kind'                => 'marker',
+				'geometry'            => array( 'lat' => 50, 'lng' => 30 ),
+				'visible_team_ids'    => array(),
+				'icon_id'             => 55,
+				'title'               => 'Mortar',
+				'description'         => 'Ready',
+				'position_accuracy_m' => 4.0,
+				'ttl_seconds'         => 60,
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			false,
+			1700000000
+		);
+
+		$this->assertSame(
+			array(
+				'kind'                => 'marker',
+				'geometry'            => array( 'lat' => 50, 'lng' => 30 ),
+				'visible_team_ids'    => array(),
+				'position_accuracy_m' => 4.0,
+				'icon_id'             => 55,
+				'title'               => 'Mortar',
+				'description'         => 'Ready',
+				'expires_at'          => gmdate( 'Y-m-d H:i:s', 1700000060 ),
+			),
+			$payload
+		);
+	}
+
+	/**
+	 * Only the creating application's update rebinds the mailbox.
+	 */
+	public function test_only_the_creator_update_binds() {
+		$application = array( 'application_id' => 9, 'team_id' => 7 );
+
+		$this->assertTrue( Application_Write::binds_on_update( array( 'application_id' => 9 ), $application ) );
+		$this->assertFalse( Application_Write::binds_on_update( array( 'application_id' => 10 ), $application ) );
+		$this->assertFalse( Application_Write::binds_on_update( array( 'application_id' => null ), $application ) );
+	}
+
+	/**
+	 * An application may name a role on create and on update.
+	 */
+	public function test_application_write_carries_role() {
+		$create = Application_Write::normalize(
+			array(
+				'kind'     => 'circle',
+				'geometry' => array( 'lat' => 50, 'lng' => 30, 'radius' => 10 ),
+				'role'     => 'minefield',
+			),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			true,
+			1700000000
+		);
+		$update = Application_Write::normalize(
+			array( 'role' => 'hint' ),
+			array( 'id' => 4, 'team_ids' => array( 7 ) ),
+			array( 'application_id' => 9, 'team_id' => 7 ),
+			false,
+			1700000000
+		);
+
+		$this->assertSame( 'minefield', $create['role'] );
+		$this->assertSame( array( 'role' => 'hint' ), $update );
 	}
 
 	/**
@@ -108,9 +231,9 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 	}
 
 	/**
-	 * An application can exclude its object from search and name a create.
+	 * A create may be named by a key; an old client's search flag is ignored.
 	 */
-	public function test_application_write_accepts_the_search_flag_and_key() {
+	public function test_application_write_ignores_the_search_flag_and_keeps_the_key() {
 		$payload = Application_Write::normalize(
 			array(
 				'kind'            => 'circle',
@@ -125,14 +248,14 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 		);
 
 		$this->assertIsArray( $payload );
-		$this->assertFalse( $payload['searchable'] );
+		$this->assertArrayNotHasKey( 'searchable', $payload );
 		$this->assertSame( 'wreck-1', $payload['client_key'] );
 	}
 
 	/**
-	 * Objects are searchable by default, and client_object_id has no server effect.
+	 * A create without a role is ordinary, and client_object_id has no server effect.
 	 */
-	public function test_application_write_defaults_to_searchable() {
+	public function test_application_write_defaults_to_ordinary() {
 		$payload = Application_Write::normalize(
 			array(
 				'kind'             => 'marker',
@@ -146,7 +269,8 @@ class TacNav_Maps_Application_Principal_Test extends TestCase {
 		);
 
 		$this->assertIsArray( $payload );
-		$this->assertTrue( $payload['searchable'] );
+		$this->assertArrayNotHasKey( 'role', $payload );
+		$this->assertArrayNotHasKey( 'searchable', $payload );
 		$this->assertArrayNotHasKey( 'client_key', $payload );
 	}
 

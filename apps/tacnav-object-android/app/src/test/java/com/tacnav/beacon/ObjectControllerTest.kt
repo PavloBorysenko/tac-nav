@@ -272,6 +272,37 @@ class ObjectControllerTest {
     }
 
     @Test
+    fun hitsOnTheHintAreaAndTheWreckAreNotCounted() = runTest {
+        val rig = Harness(
+            ObjectSettings(
+                objectName = "Antenna",
+                hitsToDestroy = 2,
+                randomAreaEnabled = true,
+                randomAreaRadiusMetres = 100.0,
+            ),
+        )
+        rig.deploy()
+        repeat(3) { rig.controller.syncMap() }
+        val areaId = rig.geo.objects.entries.single { it.value.role == "hint" }.key
+        rig.mailbox.add(areaId, "shot-area")
+        rig.controller.syncMailbox()
+        assertEquals(0, rig.controller.state.value!!.hits)
+        assertTrue(rig.played.isEmpty())
+        assertTrue(rig.mailbox.pending.isEmpty())
+
+        rig.mailbox.add(41, "shot-1")
+        rig.mailbox.add(41, "shot-2")
+        rig.controller.syncMailbox()
+        repeat(3) { rig.controller.syncMap() }
+        val wreckId = rig.geo.objects.entries.single { it.value.title == "Antenna destroyed" }.key
+        assertEquals(null, rig.geo.objects.getValue(wreckId).role)
+        rig.mailbox.add(wreckId, "shot-wreck")
+        rig.controller.syncMailbox()
+        assertEquals(2, rig.controller.state.value!!.hits)
+        assertTrue(rig.mailbox.pending.isEmpty())
+    }
+
+    @Test
     fun destroyedPhoneIgnoresFurtherHits() = runTest {
         val rig = Harness(ObjectSettings(objectName = "A", hitsToDestroy = 1))
         rig.deploy()

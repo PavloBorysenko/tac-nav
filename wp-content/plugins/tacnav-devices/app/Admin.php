@@ -180,7 +180,8 @@ class Admin {
 	}
 
 	/**
-	 * Staff page address for a tab. Mortar keeps the address it always had.
+	 * Staff page address for a tab. Mortar keeps the address it always had, and
+	 * every other known type adds its own `app` slug.
 	 *
 	 * @param string $app  Application tab slug.
 	 * @param string $flag Result flag to show, if any.
@@ -188,8 +189,9 @@ class Admin {
 	 */
 	public static function page_query( $app, $flag = '' ) {
 		$query = 'edit.php?post_type=tacnav_map&page=' . self::PAGE;
-		if ( App_Types::OBJECT === $app ) {
-			$query .= '&app=' . $app;
+		$type  = App_Types::canonical( (string) $app );
+		if ( App_Types::MORTAR !== $type ) {
+			$query .= '&app=' . $type;
 		}
 		if ( '' !== $flag ) {
 			$query .= '&' . $flag . '=1';

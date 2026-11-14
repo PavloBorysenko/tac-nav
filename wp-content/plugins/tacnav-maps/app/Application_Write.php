@@ -15,7 +15,16 @@ defined( 'ABSPATH' ) || exit;
 class Application_Write {
 
 	/**
+	 * Body fields an application update may change. Belonging, origin, the
+	 * creating application, and the author never change on update.
+	 */
+	const UPDATE_FIELDS = array( 'kind', 'geometry', 'title', 'description', 'icon_id', 'visible_team_ids', 'position_accuracy_m', 'ttl_seconds', 'role' );
+
+	/**
 	 * Build an application-stamped object payload.
+	 *
+	 * A create gets a complete object. An update carries only the fields the
+	 * body sends, and the store merges them over the stored row.
 	 *
 	 * @param array<string, mixed> $body        Request body.
 	 * @param array<string, mixed> $map         Map passport.
@@ -57,11 +66,10 @@ class Application_Write {
 		if ( array_key_exists( 'ttl_seconds', $body ) ) {
 			$payload['ttl_seconds'] = $body['ttl_seconds'];
 		}
-		if ( array_key_exists( 'searchable', $body ) ) {
-			$payload['searchable'] = filter_var( $body['searchable'], FILTER_VALIDATE_BOOLEAN );
-		} elseif ( $create ) {
-			$payload['searchable'] = true;
+		if ( isset( $body['role'] ) ) {
+			$payload['role'] = $body['role'];
 		}
+		// An older client may still send `searchable`; search no longer has that flag, so it is ignored.
 		if ( $create && isset( $body['idempotency_key'] ) && '' !== $body['idempotency_key'] ) {
 			$key = (string) $body['idempotency_key'];
 			if ( ! preg_match( '/^[A-Za-z0-9_-]{1,64}$/', $key ) ) {
@@ -70,8 +78,25 @@ class Application_Write {
 			$payload['client_key'] = $key;
 		}
 		if ( ! $create ) {
-			unset( $payload['origin'], $payload['application_id'], $payload['created_by_user_id'] );
+			$payload = array_intersect_key( $payload, array_intersect_key( $body, array_flip( self::UPDATE_FIELDS ) ) );
 		}
 		return Object_Expiry::apply_to_payload( $payload, $create, $now );
+	}
+
+	/**
+	 * Whether an application update should rebind the object's mailbox.
+	 *
+	 * Only the creating application's writes bind, so another application's
+	 * edit never takes over the object's hit deliveries.
+	 *
+	 * @param array<string, mixed> $stored      Object before the update.
+	 * @param array<string, mixed> $application Writing application principal.
+	 * @return bool
+	 */
+	public static function binds_on_update( $stored, $application ) {
+		$creator = isset( $stored['application_id'] ) ? (int) $stored['application_id'] : 0;
+		$writer  = isset( $application['application_id'] ) ? (int) $application['application_id'] : 0;
+
+		return $creator > 0 && $creator === $writer;
 	}
 }

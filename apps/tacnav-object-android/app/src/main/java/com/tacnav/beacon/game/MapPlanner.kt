@@ -4,6 +4,7 @@ import com.tacnav.beacon.domain.Coordinate
 import com.tacnav.beacon.domain.Geometry
 import com.tacnav.beacon.domain.ObjectVisibility
 import com.tacnav.beacon.domain.Shapes
+import com.tacnav.beacon.network.HINT_ROLE
 import com.tacnav.beacon.network.ObjectRequest
 
 sealed interface MapOp {
@@ -60,7 +61,7 @@ object MapPlanner {
                     visibleTeamIds = emptyList(),
                     ttlSeconds = LEASE_SECONDS,
                     positionAccuracyMetres = null,
-                    searchable = false,
+                    role = HINT_ROLE,
                 ),
             )
         }
@@ -104,7 +105,6 @@ object MapPlanner {
             visibleTeamIds = if (hidden) listOf(session.context.teamId) else emptyList(),
             ttlSeconds = LEASE_SECONDS,
             positionAccuracyMetres = position.accuracyMetres,
-            searchable = true,
         )
     }
 
@@ -124,7 +124,6 @@ object MapPlanner {
             visibleTeamIds = emptyList(),
             ttlSeconds = 0,
             positionAccuracyMetres = wreck.accuracyMetres,
-            searchable = false,
             idempotencyKey = wreck.key,
         )
     }

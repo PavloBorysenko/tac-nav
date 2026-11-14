@@ -16,6 +16,7 @@ class App_Types {
 
 	const MORTAR = 'mortar';
 	const OBJECT = 'object';
+	const SAPPER = 'sapper';
 
 	/**
 	 * Known types.
@@ -43,11 +44,19 @@ class App_Types {
 				'slug'         => 'tacnav-object',
 				'query_prefix' => 'tacnav_object',
 			),
+			self::SAPPER => array(
+				'label'        => 'Tac Nav Sapper',
+				'package_id'   => 'com.tacnav.sapper',
+				'option'       => 'tacnav_devices_release_sapper',
+				'file_name'    => 'tacnav-sapper.apk',
+				'slug'         => 'tacnav-sapper',
+				'query_prefix' => 'tacnav_sapper',
+			),
 		);
 	}
 
 	/**
-	 * Definition of a type. A stored value other than `object` is Mortar.
+	 * Definition of a type. A stored value other than `object` or `sapper` is Mortar.
 	 *
 	 * @param string $type Type.
 	 * @return array<string, string>
@@ -59,14 +68,14 @@ class App_Types {
 	/**
 	 * Map a stored type to a known type.
 	 *
-	 * Staff once typed this value freely, so anything that is not an Object
-	 * application is treated as a Mortar application.
+	 * Staff once typed this value freely, so anything that is not an Object or
+	 * Sapper application is treated as a Mortar application.
 	 *
 	 * @param string $type Stored type.
 	 * @return string
 	 */
 	public static function canonical( $type ) {
-		return self::OBJECT === $type ? self::OBJECT : self::MORTAR;
+		return self::OBJECT === $type || self::SAPPER === $type ? $type : self::MORTAR;
 	}
 
 	/**
@@ -135,6 +144,9 @@ class App_Types {
 	public static function reference_settings( $type, $input, $name = '' ) {
 		if ( self::OBJECT === self::canonical( $type ) ) {
 			return Validation::object_reference_settings( $input, $name );
+		}
+		if ( self::SAPPER === self::canonical( $type ) ) {
+			return Validation::sapper_reference_settings( $input );
 		}
 		return Validation::reference_settings( $input );
 	}

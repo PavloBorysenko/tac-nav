@@ -2,7 +2,7 @@
 
 ## What this is
 
-TacNav Devices lets authorized TacNav staff define field applications, hand one application to one Android phone, revoke lost or replaced phones, publish the current Tac Nav Mortar and Tac Nav Object APKs, and deliver durable messages between application-owned map objects. Tac Nav Object turns a phone into a guarded objective such as an antenna: it shows itself on the map, takes hits from a mortar, and leaves a wreck when destroyed.
+TacNav Devices lets authorized TacNav staff define field applications, hand one application to one Android phone, revoke lost or replaced phones, publish the current Tac Nav Mortar, Tac Nav Object, and Tac Nav Sapper APKs, and deliver durable messages between application-owned map objects. Tac Nav Object turns a phone into a guarded objective such as an antenna: it shows itself on the map, takes hits from a mortar, and leaves a wreck when destroyed.
 
 ## Who owns what
 

@@ -14,7 +14,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Activator {
 
-	const DB_VERSION = '4';
+	const DB_VERSION = '5';
 
 	/**
 	 * Logical table names.

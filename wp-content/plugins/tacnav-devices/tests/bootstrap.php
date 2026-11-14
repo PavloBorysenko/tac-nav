@@ -311,3 +311,4 @@ require_once dirname( __DIR__ ) . '/app/Apps/App_Page.php';
 require_once dirname( __DIR__ ) . '/app/Apps/App_Pages.php';
 require_once dirname( __DIR__ ) . '/app/Apps/Mortar_Page.php';
 require_once dirname( __DIR__ ) . '/app/Apps/Object_Page.php';
+require_once dirname( __DIR__ ) . '/app/Apps/Sapper_Page.php';

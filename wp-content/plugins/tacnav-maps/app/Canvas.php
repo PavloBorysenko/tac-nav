@@ -168,7 +168,9 @@ class Canvas {
 				'pictureRev' => (int) get_post_meta( (int) $map['id'], Picture_Version::META, true ),
 				'canPurge'   => 'staff' === $resolved['kind'] && current_user_can( Roles::CAP_PURGE ),
 				'kinds'      => Geo_Store::KINDS,
+				'roles'      => Object_Roles::for_canvas(),
 				'strings'    => array(
+					'purpose'       => __( 'Purpose', 'tacnav-maps' ),
 					'add'           => __( 'Add', 'tacnav-maps' ),
 					'marker'        => __( 'Point', 'tacnav-maps' ),
 					'polyline'      => __( 'Line', 'tacnav-maps' ),

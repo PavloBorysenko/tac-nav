@@ -303,6 +303,77 @@ class Validation {
 	}
 
 	/**
+	 * Default Sapper reference used when staff omit a field. A maximum of 0 means unlimited.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function sapper_reference_defaults() {
+		return array(
+			'detect_radius_m'         => 10.0,
+			'detect_sector_deg'       => 90.0,
+			'mark_hold_seconds'       => 30,
+			'clear_hold_seconds'      => 180,
+			'lay_hold_seconds'        => 180,
+			'minefield_length_m'      => 10.0,
+			'minefield_width_m'       => 10.0,
+			'minefield_icon_id'       => 0,
+			'no_mines_icon_id'        => 0,
+			'max_minefields'          => 3,
+			'max_no_mines_markers'    => 10,
+			'max_location_accuracy_m' => 15.0,
+			'settings_pin'            => '4321',
+		);
+	}
+
+	/**
+	 * Normalize staff Sapper reference settings for storage and activation.
+	 *
+	 * An empty field takes its default. Numbers must not be negative; the
+	 * detection radius, hold times, minefield sides, and GPS limit must be
+	 * positive, and the heading sector lies between 1 and 360 degrees.
+	 *
+	 * @param mixed $input Submitted values.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function sapper_reference_settings( $input ) {
+		$defaults = self::sapper_reference_defaults();
+		$source   = is_array( $input ) ? $input : array();
+		$positive = array( 'detect_radius_m', 'mark_hold_seconds', 'clear_hold_seconds', 'lay_hold_seconds', 'minefield_length_m', 'minefield_width_m', 'max_location_accuracy_m' );
+
+		$out = array();
+		foreach ( $defaults as $key => $default ) {
+			if ( 'settings_pin' === $key ) {
+				continue;
+			}
+			$value = isset( $source[ $key ] ) ? trim( (string) $source[ $key ] ) : '';
+			if ( '' === $value ) {
+				$out[ $key ] = $default;
+				continue;
+			}
+			if ( ! is_numeric( $value ) || (float) $value < 0 ) {
+				return new \WP_Error( 'tacnav_sapper_number', __( 'Sapper settings must be zero or greater.', 'tacnav-devices' ) );
+			}
+			if ( in_array( $key, $positive, true ) && (float) $value <= 0 ) {
+				return new \WP_Error( 'tacnav_sapper_positive', __( 'Detection radius, hold times, minefield sides, and the GPS accuracy limit must be greater than zero.', 'tacnav-devices' ) );
+			}
+			$out[ $key ] = is_int( $default ) ? (int) round( (float) $value ) : (float) $value;
+		}
+
+		if ( $out['detect_sector_deg'] < 1 || $out['detect_sector_deg'] > 360 ) {
+			return new \WP_Error( 'tacnav_sapper_sector', __( 'The heading sector must be between 1 and 360 degrees.', 'tacnav-devices' ) );
+		}
+
+		$pin = isset( $source['settings_pin'] ) ? trim( (string) $source['settings_pin'] ) : '';
+		$pin = '' === $pin ? $defaults['settings_pin'] : $pin;
+		if ( ! preg_match( '/^[0-9]{4,}$/', $pin ) ) {
+			return new \WP_Error( 'tacnav_sapper_pin', __( 'Settings PIN must contain at least four digits.', 'tacnav-devices' ) );
+		}
+		$out['settings_pin'] = $pin;
+
+		return $out;
+	}
+
+	/**
 	 * Distance from an object's centre to its furthest edge.
 	 *
 	 * @param float|null $size_a First size field.

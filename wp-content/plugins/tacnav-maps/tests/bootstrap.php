@@ -167,6 +167,7 @@ if ( is_readable( $tacnav_maps_autoload ) ) {
 	require_once dirname( __DIR__ ) . '/app/Application_Principal.php';
 	require_once dirname( __DIR__ ) . '/app/Post_Types.php';
 	require_once dirname( __DIR__ ) . '/app/Application_Write.php';
+	require_once dirname( __DIR__ ) . '/app/Object_Roles.php';
 	require_once dirname( __DIR__ ) . '/app/Activator.php';
 	require_once dirname( __DIR__ ) . '/app/Geo_Store.php';
 }

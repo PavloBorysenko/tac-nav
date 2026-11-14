@@ -141,7 +141,7 @@ class TacNav_Devices_Object_Test extends TestCase {
 	 */
 	public function test_save_type_rules() {
 		$this->assertSame( 'object', App_Types::resolve_save_type( 'object', null ) );
-		$this->assertSame( 'tacnav_application_type', App_Types::resolve_save_type( 'sapper', null )->get_error_code() );
+		$this->assertSame( 'tacnav_application_type', App_Types::resolve_save_type( 'drone', null )->get_error_code() );
 		$this->assertSame( 'custom-text', App_Types::resolve_save_type( 'mortar', 'custom-text' ) );
 		$this->assertSame( 'tacnav_application_type_change', App_Types::resolve_save_type( 'mortar', 'object' )->get_error_code() );
 		$this->assertSame( 'tacnav_application_type_change', App_Types::resolve_save_type( 'object', 'mortar' )->get_error_code() );

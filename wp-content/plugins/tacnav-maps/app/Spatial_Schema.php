@@ -144,7 +144,7 @@ class Spatial_Schema {
 	 * @param string $column Column.
 	 * @return bool
 	 */
-	private static function column_exists( $table, $column ) {
+	public static function column_exists( $table, $column ) {
 		global $wpdb;
 		return null !== $wpdb->get_var( $wpdb->prepare( 'SHOW COLUMNS FROM %i LIKE %s', $table, $column ) );
 	}

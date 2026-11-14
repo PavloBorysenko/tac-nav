@@ -35,8 +35,8 @@ class Geo_Store {
 		$ok    = $wpdb->query(
 			$wpdb->prepare(
 				'INSERT INTO %i
-				(map_id, kind, geometry, owner_team_id, visible_team_ids, origin, application_id, created_by_user_id, position_accuracy_m, icon_id, title, description, expires_at, created_at, updated_at, spatial_projection, searchable, client_key)
-				VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %s, NULLIF(%d, 0), %d, NULLIF(%f, -1), NULLIF(%d, 0), %s, %s, NULLIF(%s, \'\'), %s, %s, ST_GeomFromText(%s), %d, NULLIF(%s, \'\'))',
+				(map_id, kind, geometry, owner_team_id, visible_team_ids, origin, application_id, created_by_user_id, position_accuracy_m, icon_id, title, description, expires_at, created_at, updated_at, spatial_projection, role, client_key)
+				VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %s, NULLIF(%d, 0), %d, NULLIF(%f, -1), NULLIF(%d, 0), %s, %s, NULLIF(%s, \'\'), %s, %s, ST_GeomFromText(%s), %s, NULLIF(%s, \'\'))',
 				$table,
 				$row['map_id'],
 				$row['kind'],
@@ -54,7 +54,7 @@ class Geo_Store {
 				$row['created_at'],
 				$row['updated_at'],
 				$prepared['projection_wkt'],
-				$row['searchable'],
+				$row['role'],
 				isset( $data['client_key'] ) ? (string) $data['client_key'] : ''
 			)
 		);
@@ -161,7 +161,7 @@ class Geo_Store {
 		$sql   = 'UPDATE %i SET
 			map_id = %d, kind = %s, geometry = %s, owner_team_id = NULLIF(%d, 0),
 			visible_team_ids = %s, origin = %s, application_id = NULLIF(%d, 0),
-			created_by_user_id = %d, position_accuracy_m = NULLIF(%f, -1), searchable = %d,
+			created_by_user_id = %d, position_accuracy_m = NULLIF(%f, -1), role = %s,
 			icon_id = NULLIF(%d, 0), title = %s, description = %s,
 			expires_at = NULLIF(%s, \'\'), updated_at = %s,
 			spatial_projection = ST_GeomFromText(%s)
@@ -177,7 +177,7 @@ class Geo_Store {
 			$row['application_id'],
 			$row['created_by_user_id'],
 			$row['position_accuracy_m'],
-			$row['searchable'],
+			$row['role'],
 			$row['icon_id'],
 			$row['title'],
 			$row['description'],
@@ -298,47 +298,44 @@ class Geo_Store {
 	 * @param string               $kind     Query kind.
 	 * @param array<string, mixed> $geometry Normalized query geometry.
 	 * @param int                  $now      Server timestamp.
-	 * @return array<int, array<string, mixed>>|\WP_Error
+	 * @param mixed                $role     Only this role; null returns every role. Anything unregistered is refused.
+	 * @return array<int, array<string, mixed>>|\WP_Error Whole stored objects without the idempotency key.
 	 */
-	public function search( $map_id, $kind, $geometry, $now ) {
+	public function search( $map_id, $kind, $geometry, $now, $role = null ) {
 		global $wpdb;
 
-		$table = Activator::table_name();
-		$rows  = $wpdb->get_results(
-			$wpdb->prepare(
-				'SELECT id, kind, geometry, position_accuracy_m
-				FROM %i FORCE INDEX (spatial_projection)
-				WHERE map_id = %d
-				AND searchable = 1
-				AND (expires_at IS NULL OR expires_at > %s)
-				AND MBRIntersects(spatial_projection, ST_GeomFromText(%s))
-				ORDER BY id ASC',
-				$table,
-				(int) $map_id,
-				gmdate( 'Y-m-d H:i:s', $now ),
-				Geometry_Service::projection_wkt( $kind, $geometry )
-			),
-			ARRAY_A
+		if ( null !== $role && ! Object_Roles::exists( $role ) ) {
+			return new \WP_Error( 'tacnav_geo_role', __( 'Unknown object role.', 'tacnav-maps' ), array( 'status' => 400 ) );
+		}
+
+		$sql  = 'SELECT * FROM %i FORCE INDEX (spatial_projection)
+			WHERE map_id = %d
+			AND (expires_at IS NULL OR expires_at > %s)
+			AND MBRIntersects(spatial_projection, ST_GeomFromText(%s))';
+		$args = array(
+			Activator::table_name(),
+			(int) $map_id,
+			gmdate( 'Y-m-d H:i:s', $now ),
+			Geometry_Service::projection_wkt( $kind, $geometry ),
 		);
+		if ( null !== $role ) {
+			$sql   .= ' AND role = %s';
+			$args[] = (string) $role;
+		}
+		$sql .= ' ORDER BY id ASC';
+
+		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL has fixed clauses and is prepared with the assembled values.
 		if ( ! is_array( $rows ) ) {
 			return new \WP_Error( 'tacnav_spatial_search', __( 'Indexed geometry search failed.', 'tacnav-maps' ), array( 'status' => 500 ) );
 		}
 
 		$results = array();
 		foreach ( $rows as $row ) {
-			$object_geometry = json_decode( (string) $row['geometry'], true );
-			if ( ! is_array( $object_geometry ) || ! Geometry_Service::intersects( $kind, $geometry, (string) $row['kind'], $object_geometry ) ) {
+			$object = $this->hydrate( $row );
+			if ( array() === $object['geometry'] || ! Geometry_Service::intersects( $kind, $geometry, $object['kind'], $object['geometry'] ) ) {
 				continue;
 			}
-			$result = array(
-				'id'       => (int) $row['id'],
-				'kind'     => (string) $row['kind'],
-				'geometry' => $object_geometry,
-			);
-			if ( null !== $row['position_accuracy_m'] && '' !== (string) $row['position_accuracy_m'] ) {
-				$result['position_accuracy_m'] = (float) $row['position_accuracy_m'];
-			}
-			$results[] = $result;
+			$results[] = $object;
 		}
 		return $results;
 	}
@@ -452,6 +449,12 @@ class Geo_Store {
 			return $geometry;
 		}
 
+		$role  = isset( $data['role'] ) ? $data['role'] : '';
+		$valid = Object_Roles::validate( $role, $kind );
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
 		$visible = array();
 		if ( isset( $data['visible_team_ids'] ) && is_array( $data['visible_team_ids'] ) ) {
 			$visible = array_values( array_unique( array_filter( array_map( 'intval', $data['visible_team_ids'] ) ) ) );
@@ -489,7 +492,7 @@ class Geo_Store {
 			'application_id'      => $application_id > 0 ? $application_id : 0,
 			'created_by_user_id'  => isset( $data['created_by_user_id'] ) ? (int) $data['created_by_user_id'] : get_current_user_id(),
 			'position_accuracy_m' => $accuracy,
-			'searchable'          => array_key_exists( 'searchable', $data ) && ! $data['searchable'] ? 0 : 1,
+			'role'                => (string) $role,
 			'icon_id'             => $icon > 0 ? $icon : null,
 			'title'               => isset( $data['title'] ) ? sanitize_text_field( (string) $data['title'] ) : '',
 			'description'         => isset( $data['description'] ) ? wp_kses_post( (string) $data['description'] ) : '',
@@ -528,7 +531,7 @@ class Geo_Store {
 			'application_id'      => '' === (string) $row['application_id'] ? null : (int) $row['application_id'],
 			'created_by_user_id'  => (int) $row['created_by_user_id'],
 			'position_accuracy_m' => '' === (string) $row['position_accuracy_m'] ? null : (float) $row['position_accuracy_m'],
-			'searchable'          => ! isset( $row['searchable'] ) || '0' !== (string) $row['searchable'],
+			'role'                => isset( $row['role'] ) ? (string) $row['role'] : '',
 			'icon_id'             => '' === (string) $row['icon_id'] ? null : (int) $row['icon_id'],
 			'title'               => (string) $row['title'],
 			'description'         => (string) $row['description'],

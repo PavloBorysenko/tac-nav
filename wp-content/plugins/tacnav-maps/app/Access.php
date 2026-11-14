@@ -76,13 +76,12 @@ class Access {
 			return true;
 		}
 
-		$origin = isset( $geo['origin'] ) ? (string) $geo['origin'] : '';
+		// The site is a hub: which objects an application changes is its own game decision.
 		if ( ! empty( $viewer['is_application'] ) ) {
-			return 'application' === $origin &&
-				isset( $geo['application_id'], $viewer['application_id'] ) &&
-				(int) $geo['application_id'] > 0 &&
-				(int) $geo['application_id'] === (int) $viewer['application_id'];
+			return true;
 		}
+
+		$origin = isset( $geo['origin'] ) ? (string) $geo['origin'] : '';
 
 		if ( 'team' !== $origin ) {
 			return false;

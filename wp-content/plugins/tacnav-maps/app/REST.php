@@ -283,7 +283,7 @@ class REST {
 			return $updated;
 		}
 
-		if ( is_array( $application ) ) {
+		if ( is_array( $application ) && Application_Write::binds_on_update( $object, $application ) ) {
 			do_action( 'tacnav_application_object_saved', (int) $object['id'], $application );
 		}
 		self::publish_picture( (int) $request['map_id'] );
@@ -348,7 +348,8 @@ class REST {
 		if ( is_wp_error( $geometry ) ) {
 			return $geometry;
 		}
-		$results = ( new Geo_Store() )->search( (int) $map['id'], $kind, $geometry, time() );
+		$role    = isset( $body['role'] ) ? $body['role'] : null;
+		$results = ( new Geo_Store() )->search( (int) $map['id'], $kind, $geometry, time(), $role );
 		return is_wp_error( $results ) ? $results : rest_ensure_response( $results );
 	}
 
@@ -704,6 +705,22 @@ class REST {
 			$body = $request->get_params();
 		}
 
+		return self::staff_payload( $body, $map_id, $create, time() );
+	}
+
+	/**
+	 * Staff object payload from request fields.
+	 *
+	 * A role is stored only when the body sends one, so an edit that omits it
+	 * keeps the stored role.
+	 *
+	 * @param array<string, mixed> $body   Request fields.
+	 * @param int                  $map_id Map ID.
+	 * @param bool                 $create Creating.
+	 * @param int                  $now    Unix time the server accepts the save.
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function staff_payload( $body, $map_id, $create, $now ) {
 		if ( array_key_exists( 'ttl_minutes', $body ) ) {
 			return new \WP_Error( 'tacnav_ttl_minutes_removed', __( 'ttl_minutes is no longer accepted; use ttl_seconds.', 'tacnav-maps' ), array( 'status' => 400 ) );
 		}
@@ -721,10 +738,16 @@ class REST {
 			'created_by_user_id' => get_current_user_id(),
 		);
 
+		if ( isset( $body['role'] ) ) {
+			$payload['role'] = $body['role'];
+		}
 		if ( array_key_exists( 'ttl_seconds', $body ) ) {
 			$payload['ttl_seconds'] = $body['ttl_seconds'];
 		}
-		$payload = self::apply_ttl( $payload, $create );
+		$payload = Object_Expiry::apply_to_payload( $payload, $create, $now );
+		if ( is_wp_error( $payload ) ) {
+			return $payload;
+		}
 
 		if ( ! $create && isset( $body['origin'] ) ) {
 			unset( $payload['origin'] );

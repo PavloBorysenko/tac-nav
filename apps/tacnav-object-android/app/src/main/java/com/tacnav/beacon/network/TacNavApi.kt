@@ -27,9 +27,13 @@ data class ObjectRequest(
     val visibleTeamIds: List<Long>,
     val ttlSeconds: Long,
     val positionAccuracyMetres: Double?,
-    val searchable: Boolean,
+    /** Server role slug; null sends no role, so the object is ordinary. */
+    val role: String? = null,
     val idempotencyKey: String? = null,
 )
+
+/** Role of the public area that hides the real object somewhere inside it. */
+const val HINT_ROLE = "hint"
 
 data class MailboxDelivery(
     val cursor: Long,
@@ -137,7 +141,7 @@ class HttpTacNavApi(
         .put("ttl_seconds", request.ttlSeconds)
         .put("position_accuracy_m", request.positionAccuracyMetres ?: JSONObject.NULL)
         .put("icon_id", request.iconId ?: 0)
-        .put("searchable", request.searchable)
+        .apply { request.role?.let { put("role", it) } }
         .apply { request.idempotencyKey?.let { put("idempotency_key", it) } }
         .toString()
         .toRequestBody(JSON)

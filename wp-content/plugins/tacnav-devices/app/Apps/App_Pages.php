@@ -23,6 +23,7 @@ class App_Pages {
 		return array(
 			new Mortar_Page(),
 			new Object_Page(),
+			new Sapper_Page(),
 		);
 	}
 
