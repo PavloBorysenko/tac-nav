@@ -10,22 +10,23 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tacnav.sapper.game.Fix
+import com.tacnav.sapper.game.FixSmoother
 
-/** Fused high-accuracy fixes once a second, only while the activity is resumed. */
+/** Fused high-accuracy fixes once a second, smoothed, only while the activity is resumed. */
 class Locator(context: Context) {
     private val client = LocationServices.getFusedLocationProviderClient(context)
+    private val smoother = FixSmoother()
     private var callback: LocationCallback? = null
 
     @SuppressLint("MissingPermission")
     fun start(onLocation: (Location, Fix) -> Unit) {
         if (callback != null) return
+        smoother.reset()
         val next = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val location = result.lastLocation ?: return
-                onLocation(
-                    location,
-                    Fix(location.latitude, location.longitude, location.accuracy.toDouble(), location.time),
-                )
+                val raw = Fix(location.latitude, location.longitude, location.accuracy.toDouble(), location.time)
+                onLocation(location, smoother.smooth(raw))
             }
         }
         callback = next

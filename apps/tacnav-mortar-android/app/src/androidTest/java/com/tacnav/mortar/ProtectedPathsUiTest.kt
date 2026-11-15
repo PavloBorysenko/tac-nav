@@ -13,12 +13,15 @@ import com.tacnav.mortar.domain.MapScope
 import com.tacnav.mortar.domain.ServiceConfiguration
 import com.tacnav.mortar.domain.TeamScope
 import com.tacnav.mortar.security.LocalState
+import com.tacnav.mortar.security.PinAttempt
 import com.tacnav.mortar.security.PinRecord
 import com.tacnav.mortar.ui.TacNavTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 class ProtectedPathsUiTest {
     @get:Rule
@@ -48,23 +51,47 @@ class ProtectedPathsUiTest {
     }
 
     @Test
-    fun protected_settings_submit_through_pin_gate() {
-        val submitted = AtomicBoolean(false)
+    fun pin_is_asked_once_when_opening_protected_settings() {
+        val checkedPin = AtomicReference<String?>(null)
+        val unlocked = AtomicBoolean(false)
         compose.setContent {
             TacNavTheme {
-                ProtectedSettingsScreen(
-                    state = state(),
-                    onSave = { _, _ ->
-                        submitted.set(true)
-                        ProtectedResult.Saved
+                ProtectedPinScreen(
+                    onUnlock = { pin ->
+                        checkedPin.set(pin)
+                        PinAttempt.Accepted
                     },
-                    onChangePin = { _, _ -> ProtectedResult.Saved },
+                    onUnlocked = { unlocked.set(true) },
                     onBack = {},
                 )
             }
         }
 
         compose.onNodeWithTag("settings-pin").assertExists().performTextInput("4321")
+        compose.onNodeWithTag("unlock-protected-settings").performClick()
+        compose.waitUntil(5_000) { unlocked.get() }
+
+        assertEquals("4321", checkedPin.get())
+    }
+
+    @Test
+    fun unlocked_protected_settings_save_without_pin() {
+        val submitted = AtomicBoolean(false)
+        compose.setContent {
+            TacNavTheme {
+                ProtectedSettingsScreen(
+                    state = state(),
+                    onSave = {
+                        submitted.set(true)
+                        ProtectedResult.Saved
+                    },
+                    onChangePin = { ProtectedResult.Saved },
+                    onBack = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag("settings-pin").assertDoesNotExist()
         compose.onNodeWithTag("save-protected-settings").performScrollTo().performClick()
 
         assertTrue(submitted.get())

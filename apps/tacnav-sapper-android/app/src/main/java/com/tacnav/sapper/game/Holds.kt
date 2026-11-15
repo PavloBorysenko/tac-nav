@@ -8,17 +8,23 @@ import com.tacnav.sapper.domain.Plane
 import com.tacnav.sapper.domain.SapperSettings
 import com.tacnav.sapper.domain.Shapes
 
-/** Mark minefield: a hold that starts from zero every time. */
+/**
+ * Mark minefield: hold time accumulated per field. Releasing the button, losing
+ * GPS, or stepping out of the field stops the hold and keeps the time. It is
+ * persisted, so it survives a restart.
+ */
 data class MarkHold(
-    val fieldId: Long? = null,
-    val heldMillis: Long = 0,
+    val progress: Map<Long, Long> = emptyMap(),
+    val targetId: Long? = null,
     val lastTickMillis: Long? = null,
 ) {
     val pressed: Boolean get() = lastTickMillis != null
 
-    fun press(field: MapObject, nowMillis: Long): MarkHold = MarkHold(field.id, 0, nowMillis)
+    fun press(field: MapObject, nowMillis: Long): MarkHold = copy(targetId = field.id, lastTickMillis = nowMillis)
 
-    fun release(): MarkHold = MarkHold()
+    fun release(): MarkHold = copy(targetId = null, lastTickMillis = null)
+
+    fun heldMillis(fieldId: Long?): Long = fieldId?.let { progress[it] } ?: 0
 
     /** Returns the new hold and, when the hold completes, the marked field. */
     fun advance(
@@ -28,14 +34,17 @@ data class MarkHold(
         settings: SapperSettings,
     ): Pair<MarkHold, MapObject?> {
         val last = lastTickMillis ?: return this to null
-        if (target == null || target.id != fieldId || !usable) return MarkHold() to null
-        val held = heldMillis + (nowMillis - last).coerceAtLeast(0)
-        if (held >= settings.markHoldSeconds * 1_000) return MarkHold() to target
-        return copy(heldMillis = held, lastTickMillis = nowMillis) to null
+        if (target == null || target.id != targetId || !usable) return release() to null
+        val held = heldMillis(target.id) + (nowMillis - last).coerceAtLeast(0)
+        if (held >= settings.markHoldSeconds * 1_000) return MarkHold(progress - target.id) to target
+        return copy(progress = progress + (target.id to held), lastTickMillis = nowMillis) to null
     }
 
-    fun fraction(settings: SapperSettings): Float =
-        (heldMillis.toFloat() / (settings.markHoldSeconds * 1_000)).coerceIn(0f, 1f)
+    /** Drops progress for fields the team can already see. */
+    fun forget(fieldIds: Collection<Long>): MarkHold = copy(progress = progress - fieldIds.toSet())
+
+    fun fraction(fieldId: Long?, settings: SapperSettings): Float =
+        (heldMillis(fieldId).toFloat() / (settings.markHoldSeconds * 1_000)).coerceIn(0f, 1f)
 
     companion object {
         /** The new visibility keeps every team already listed. */

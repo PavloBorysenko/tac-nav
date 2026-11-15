@@ -3,6 +3,7 @@ package com.tacnav.mortar
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -77,13 +78,12 @@ class SessionUiTest {
     }
 
     @Test
-    fun empty_firing_set_is_refused_before_pin_check() {
+    fun empty_firing_set_is_refused_before_save() {
         val submitted = AtomicBoolean(false)
         protectedSettings {
             submitted.set(true)
             ProtectedResult.Saved
         }
-        compose.onNodeWithTag("settings-pin").performTextInput("4321")
         compose.onNodeWithText("Button").performScrollTo().performClick()
         compose.onNodeWithTag("save-protected-settings").performScrollTo().performClick()
         assertFalse(submitted.get())
@@ -91,11 +91,24 @@ class SessionUiTest {
     }
 
     @Test
-    fun wrong_pin_is_reported() {
-        protectedSettings { ProtectedResult.Denied(PinAttempt.Rejected(4)) }
+    fun wrong_pin_keeps_protected_settings_closed() {
+        val unlocked = AtomicBoolean(false)
+        compose.setContent {
+            TacNavTheme {
+                ProtectedPinScreen(
+                    onUnlock = { PinAttempt.Rejected(4) },
+                    onUnlocked = { unlocked.set(true) },
+                    onBack = {},
+                )
+            }
+        }
         compose.onNodeWithTag("settings-pin").performTextInput("0000")
-        compose.onNodeWithTag("save-protected-settings").performScrollTo().performClick()
-        compose.onNodeWithText("Incorrect PIN", substring = true).performScrollTo().assertExists()
+        compose.onNodeWithTag("unlock-protected-settings").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Incorrect PIN", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        assertFalse(unlocked.get())
     }
 
     private fun session(
@@ -126,8 +139,8 @@ class SessionUiTest {
             TacNavTheme {
                 ProtectedSettingsScreen(
                     state = state(GameplaySettings()),
-                    onSave = { _, _ -> onSave() },
-                    onChangePin = { _, _ -> ProtectedResult.Saved },
+                    onSave = { onSave() },
+                    onChangePin = { ProtectedResult.Saved },
                     onBack = {},
                 )
             }

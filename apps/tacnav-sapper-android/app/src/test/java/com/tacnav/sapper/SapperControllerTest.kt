@@ -115,6 +115,32 @@ class SapperControllerTest {
         assertEquals(1, rig.controller.state.counters.minefields)
         assertEquals(2, rig.controller.view.value.minefieldsLeft)
         assertNull(rig.controller.state.laying)
+        assertEquals(listOf(SapperController.LAID_SIGNALS), rig.played)
+        assertEquals(1, rig.controller.view.value.laidSerial)
+    }
+
+    @Test
+    fun detectShowsInsideAMinefieldOfAnyTeam() = runTest {
+        val rig = Rig()
+        rig.api.fields[1] = Fields.square(1, 0.0, 0.0, owner = Fields.BLUE, visible = listOf(Fields.BLUE))
+        rig.controller.enter(Mode.DETECT)
+        rig.seconds(2)
+        assertTrue(rig.controller.view.value.insideMinefield)
+        assertFalse(rig.controller.view.value.markAvailable)
+        rig.seconds(6, position = Fields.at(180.0, 30.0))
+        assertFalse(rig.controller.view.value.insideMinefield)
+    }
+
+    @Test
+    fun clearShowsInsideOnlyWithinTheTargetField() = runTest {
+        val rig = Rig()
+        rig.api.fields[1] = Fields.square(1, 0.0, 7.0)
+        rig.controller.enter(Mode.CLEAR)
+        rig.second()
+        assertEquals(1L, rig.controller.view.value.clearTargetId)
+        assertFalse(rig.controller.view.value.insideMinefield)
+        rig.second(position = Fields.at(0.0, 7.0))
+        assertTrue(rig.controller.view.value.insideMinefield)
     }
 
     @Test
@@ -233,7 +259,7 @@ class SapperControllerTest {
     }
 
     @Test
-    fun releasingTheMarkStartsAgain() = runTest {
+    fun releasingTheMarkContinuesFromTheSavedProgress() = runTest {
         val rig = Rig()
         rig.api.fields[1] = Fields.square(1, 0.0, 0.0)
         rig.controller.enter(Mode.DETECT)
@@ -241,9 +267,59 @@ class SapperControllerTest {
         rig.controller.pressMark()
         rig.seconds(20)
         rig.controller.releaseMark()
+        assertEquals(20_000L, rig.saved!!.markProgress[1L])
+        rig.controller.pressMark()
+        rig.seconds(9)
+        assertTrue(rig.api.marks.isEmpty())
+        rig.seconds(3)
+        assertEquals(1, rig.api.marks.size)
+    }
+
+    @Test
+    fun markProgressSurvivesARestart() = runTest {
+        val rig = Rig()
+        rig.api.fields[1] = Fields.square(1, 0.0, 0.0)
+        rig.controller.enter(Mode.DETECT)
+        rig.seconds(2)
         rig.controller.pressMark()
         rig.seconds(20)
-        assertTrue(rig.api.marks.isEmpty())
+        rig.controller.pause()
+        rig.controller.load(rig.saved)
+        rig.controller.enter(Mode.DETECT)
+        rig.seconds(2)
+        assertEquals(2f / 3, rig.controller.view.value.markFraction, 0.01f)
+        rig.controller.pressMark()
+        rig.seconds(12)
+        assertEquals(1, rig.api.marks.size)
+    }
+
+    @Test
+    fun gpsWanderAtTheEdgeKeepsTheMarkHold() = runTest {
+        val rig = Rig()
+        rig.api.fields[1] = Fields.square(1, 0.0, 0.0)
+        rig.controller.enter(Mode.DETECT)
+        rig.seconds(2, position = Fields.at(90.0, 4.0))
+        rig.controller.pressMark()
+        repeat(14) {
+            rig.second(position = Fields.at(90.0, 4.0))
+            rig.second(position = Fields.at(90.0, 7.0))
+            assertTrue(rig.controller.view.value.markAvailable)
+        }
+        rig.seconds(2, position = Fields.at(90.0, 4.0))
+        assertEquals(1, rig.api.marks.size)
+    }
+
+    @Test
+    fun clearKeepsTheSkullThroughGpsWanderAtTheEdge() = runTest {
+        val rig = Rig()
+        rig.api.fields[1] = Fields.square(1, 0.0, 0.0)
+        rig.controller.enter(Mode.CLEAR)
+        rig.second(position = Fields.at(90.0, 4.0))
+        assertTrue(rig.controller.view.value.insideMinefield)
+        rig.second(position = Fields.at(90.0, 7.0))
+        assertTrue(rig.controller.view.value.insideMinefield)
+        rig.second(position = Fields.at(90.0, 9.0))
+        assertFalse(rig.controller.view.value.insideMinefield)
     }
 
     @Test

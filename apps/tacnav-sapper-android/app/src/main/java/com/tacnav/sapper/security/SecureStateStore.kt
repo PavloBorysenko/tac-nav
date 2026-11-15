@@ -273,10 +273,19 @@ object GameJson {
                 }
             },
         )
+        .put(
+            "mark_progress",
+            JSONArray().apply {
+                state.markProgress.forEach { (fieldId, held) ->
+                    put(JSONObject().put("field_id", fieldId).put("held_ms", held))
+                }
+            },
+        )
         .put("outbox", JSONArray().apply { state.outbox.forEach { put(encodeWrite(it)) } })
 
     fun decode(json: JSONObject): GameState {
         val progress = json.optJSONArray("clear_progress") ?: JSONArray()
+        val marks = json.optJSONArray("mark_progress") ?: JSONArray()
         val outbox = json.optJSONArray("outbox") ?: JSONArray()
         return GameState(
             counters = Counters(json.optInt("minefields"), json.optInt("no_mines_markers")),
@@ -289,6 +298,10 @@ object GameJson {
                     entry.getLong("held_ms"),
                 )
             },
+            markProgress = List(marks.length()) { index ->
+                val entry = marks.getJSONObject(index)
+                entry.getLong("field_id") to entry.getLong("held_ms")
+            }.toMap(),
             outbox = List(outbox.length()) { decodeWrite(outbox.getJSONObject(it)) },
         )
     }

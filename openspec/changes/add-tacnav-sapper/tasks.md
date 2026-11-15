@@ -59,7 +59,7 @@
 - [x] 6.2 Run `:app:connectedDebugAndroidTest` on the connected phone. Verify that every instrumented test passes.
 
   Result (2026-11-08): the debug and androidTest APKs passed 28 of 28 on the moto g53 (Android 14). Gradle could not start its test worker because the machine was out of memory, so the same APKs were installed with adb and run with `am instrument`, as the README describes.
-- [ ] 6.3 Install the debug build on the connected phone and activate it against a site the phone can reach, using a Sapper application. Then:
+- [x] 6.3 Install the debug build on the connected phone and activate it against a site the phone can reach, using a Sapper application. Then:
   - lay a minefield;
   - detect it from outside;
   - mark it with a second team's activation;
@@ -75,5 +75,32 @@
   - Red cleared it with `ttl_seconds: 1`, and it left search.
   - Red placed No mines: ordinary role, visible to Red, no expiry.
 
-  The test objects were deleted. The on-phone run is still open.
+  The test objects were deleted.
+
+  On-phone run (2026-11-15, production site, map 46): the user ran detect, mark with a second team's activation, clear, and No mines against a minefield placed by staff, and laid a field from the phone in 7.6. The user reported that each step worked. The per-object server results were checked by the user on the map, not recorded here.
 - [x] 6.4 Run `openspec validate add-tacnav-sapper --strict`. Verify that it passes.
+
+## 7. Field feedback from the first phone test
+
+- [x] 7.1 After a completed laying, play three short alarm-channel signals and show a full-screen Minefield laid confirmation for 5 seconds that does not repeat when Lay mines is opened again; verify with a controller test and screen tests.
+- [x] 7.2 Replace the green Detect box, which looked like a button that did nothing, with an animated mine detector display and a hint on how to sweep and what the signals mean.
+- [x] 7.3 Make every hold button larger and every hold progress bar thick with a whole percentage; verify 42% is shown.
+- [x] 7.4 Show a red skull warning in Detect and Clear mines while the phone is inside a known minefield of any team; verify own-team fields and the near-but-outside clear case.
+- [x] 7.5 Run `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug`, and the instrumented tests on the connected phone.
+
+  Result (2026-11-15): unit tests, lint, and both debug builds passed. The instrumented APKs passed 32 of 32 on the connected phone with `am instrument`.
+- [x] 7.6 On the phone, lay a field and check that the signal and confirmation are noticeable, check that Detect reads as a mine detector, and check the skull inside a field.
+
+## 8. Field feedback from the production site test
+
+On 2026-11-15 the phone was tested on map 46 of the production site with a minefield placed by staff. Detect and the skull switched between inside and outside while standing near the edge, and Mark minefield lost its progress.
+
+- [x] 8.1 Smooth successive fixes with an accuracy-weighted filter that keeps the raw accuracy; verify a standing phone's 4 m wander stays within 2 m, a walking phone is followed within 3 m, and a gap restarts the filter.
+- [x] 8.2 Enter a field only from inside and leave it only beyond an accuracy-sized margin of 1 to 5 m, in Detect and in the Clear mines skull; verify wander at the edge keeps the phone inside without repeated signals.
+- [x] 8.3 Keep Mark minefield time per field through release, GPS loss, leaving the field, and a restart; discard it once the team can see the field; verify with hold, controller, and storage tests.
+- [x] 8.4 Run `:app:testDebugUnitTest`, `:app:lintDebug`, `:app:assembleDebug`, and the instrumented tests on the connected phone.
+
+  Result (2026-11-15): 67 of 67 unit tests passed, lint showed only the earlier warnings, and both debug builds passed. The instrumented APKs passed 32 of 32 on the moto g53 with `am instrument`. The test run erased the phone's Sapper activation, which must be scanned again.
+- [x] 8.5 On map 46, stand at a field edge in Detect and Clear mines and check that the skull no longer flickers; release and resume Mark minefield and check that it continues.
+
+  Result (2026-11-15): the user checked both on the phone and reported that they work.

@@ -62,6 +62,8 @@ data class SapperView(
     val noMinesLeft: Int? = null,
     val minefieldsLeft: Int? = null,
     val laying: Laying? = null,
+    /** Grows by one each time a laying completes, for the confirmation animation. */
+    val laidSerial: Int = 0,
     val layPressed: Boolean = false,
     val layFraction: Float = 0f,
     val clearSearched: Boolean = false,
@@ -69,6 +71,8 @@ data class SapperView(
     val clearPressed: Boolean = false,
     val clearFraction: Float = 0f,
     val safe: Boolean = false,
+    /** True while the phone stands inside a known minefield of any team. */
+    val insideMinefield: Boolean = false,
     val pendingWrites: Int = 0,
     val message: String? = null,
 )
@@ -89,12 +93,14 @@ class SapperController(
     private var online = true
     private var message: String? = null
     private var flashSerial = 0
+    private var laidSerial = 0
 
     private var level = DetectorLevel.NONE
     private var detectFields: List<MapObject> = emptyList()
     private var detectSearch: SearchMark? = null
     private var markTarget: MapObject? = null
     private var insideAny = false
+    private var detectInside: Set<Long> = emptySet()
     private var markHold = MarkHold()
 
     private var layHold = LayHold()
@@ -103,6 +109,7 @@ class SapperController(
     private var clearSearch: SearchMark? = null
     private var clearSearched = false
     private var clearHold = ClearHold()
+    private var clearInside: Set<Long> = emptySet()
     private var safe = false
 
     private var nextWriteAttempt = 0L
@@ -117,7 +124,7 @@ class SapperController(
         game = saved ?: GameState()
         layHold = LayHold(game.laying)
         clearHold = ClearHold(game.clearProgress.associateBy(ClearProgress::fieldId))
-        markHold = MarkHold()
+        markHold = MarkHold(game.markProgress)
         mode = Mode.HOME
         message = null
         publish()
@@ -129,6 +136,9 @@ class SapperController(
         message = null
         safe = false
         level = DetectorLevel.NONE
+        insideAny = false
+        detectInside = emptySet()
+        clearInside = emptySet()
         if (next == Mode.DETECT) detectSearch = null
         if (next == Mode.CLEAR) {
             clearSearch = null
@@ -167,6 +177,7 @@ class SapperController(
 
     override fun releaseMark() {
         markHold = markHold.release()
+        persist()
         publish()
     }
 
@@ -270,16 +281,21 @@ class SapperController(
             heading,
             current.settings,
             current.context.teamId,
+            detectInside,
+            Inside.exitMetres(position.accuracyMetres),
         )
         level = step.level
         markTarget = step.markTarget
         insideAny = step.insideAny
+        detectInside = step.insideIds
         if (step.signals > 0) {
             signals.play(step.signals)
             flashSerial += 1
         }
+        val wasMarking = markHold.pressed
         val (hold, marked) = markHold.advance(now.elapsedMillis, markTarget, gps, current.settings)
         markHold = hold
+        if (marked == null && wasMarking) persist()
         if (marked != null) {
             enqueue(
                 PendingWrite.MarkField(
@@ -300,9 +316,14 @@ class SapperController(
         }
         if (SearchPolicy.due(detectSearch, position, now.epochMillis)) {
             val radius = 2 * current.settings.detectRadiusMetres
-            search(current.context, position, radius)?.let {
-                detectFields = it
+            search(current.context, position, radius)?.let { found ->
+                detectFields = found
                 detectSearch = SearchMark(position.coordinate, now.epochMillis)
+                val seen = found.filter { it.id in markHold.progress && !DetectorMachine.markable(it, current.context.teamId) }
+                if (seen.isNotEmpty()) {
+                    markHold = markHold.forget(seen.map(MapObject::id))
+                    persist()
+                }
             }
         }
     }
@@ -321,6 +342,8 @@ class SapperController(
                     current.settings.minefieldIconId,
                 ),
             )
+            signals.play(LAID_SIGNALS)
+            laidSerial += 1
             message = "Minefield laid."
         } else if (wasPressed || hold.laying?.locked == true) {
             persist()
@@ -354,6 +377,7 @@ class SapperController(
                 }
             }
         }
+        clearInside = Inside.update(clearInside, clearFields, position.coordinate, Inside.exitMetres(position.accuracyMetres))
     }
 
     /** Null on failure, so the previous results stay in use. */
@@ -445,6 +469,7 @@ class SapperController(
     private fun snapshot(): GameState = game.copy(
         laying = layHold.laying,
         clearProgress = clearHold.progress.values.toList(),
+        markProgress = markHold.progress,
     )
 
     private fun persist() {
@@ -455,7 +480,13 @@ class SapperController(
     private fun publish() {
         val current = session()
         val settings = current?.settings ?: SapperSettings()
-        val clearTarget = fix?.coordinate?.let { ClearingMachine.target(clearFields, it) }
+        val position = fix?.coordinate
+        val clearTarget = position?.let { ClearingMachine.target(clearFields, it) }
+        val insideMinefield = when (mode) {
+            Mode.DETECT -> insideAny
+            Mode.CLEAR -> clearInside.isNotEmpty()
+            else -> false
+        }
         mutableView.value = SapperView(
             mode = mode,
             online = online,
@@ -467,11 +498,12 @@ class SapperController(
             flashSerial = flashSerial,
             markAvailable = mode == Mode.DETECT && markTarget != null,
             markPressed = markHold.pressed,
-            markFraction = markHold.fraction(settings),
+            markFraction = markHold.fraction(markTarget?.id, settings),
             noMinesOffered = noMinesOffered(),
             noMinesLeft = Limits.noMinesLeft(settings, game),
             minefieldsLeft = Limits.minefieldsLeft(settings, game),
             laying = layHold.laying,
+            laidSerial = laidSerial,
             layPressed = layHold.pressed,
             layFraction = LayingMachine.fraction(layHold.laying, settings),
             clearSearched = clearSearched,
@@ -479,6 +511,7 @@ class SapperController(
             clearPressed = clearHold.pressed,
             clearFraction = ClearingMachine.fraction(clearHold, clearTarget?.id, settings),
             safe = safe,
+            insideMinefield = insideMinefield,
             pendingWrites = game.outbox.size,
             message = message,
         )
@@ -488,5 +521,8 @@ class SapperController(
         const val SAFE = "This area is safe"
         const val NO_MARKERS_LEFT = "No markers left for this activation."
         const val REFRESH_RADIUS_METRES = 1.0
+
+        /** Three short signals confirm a laid minefield; detection uses one or two. */
+        const val LAID_SIGNALS = 3
     }
 }

@@ -85,7 +85,7 @@ The states are ordered `NONE < FAR < NEAR < INSIDE`.
 - **Leaving a state** needs a margin, so jitter does not re-arm it:
   - the sector edge plus 10°;
   - the radius or half radius plus max(1 m, 5 % of the radius);
-  - 1 m outside a field's edge before *inside* ends.
+  - outside a field's edge by the fix accuracy, clamped to 1–5 m, before the phone leaves that field. Entering a field still needs the fix inside it. Detect and the Clear mines skull share this per-field check (`Inside` in `Detector.kt`).
 - **Mark minefield** shows in *inside* when the containing field has an owner other than the phone's team, or no owner, and its visibility list is non-empty and does not contain the phone's team.
 - **No mines** shows outside every kept field.
 
@@ -95,7 +95,7 @@ Beeps are synthesised with `AudioTrack` as a short 1 kHz tone. Two beeps are two
 
 ### 7. Foreground-only sensors
 
-Location requests (fused, high accuracy, 1 s) and the rotation-vector listener run only while the activity is resumed. The window sets `FLAG_KEEP_SCREEN_ON`. There is no foreground service and no background-location permission. Holds pause on `onPause` and persist their accumulated time.
+Location requests (fused, high accuracy, 1 s) and the rotation-vector listener run only while the activity is resumed. Fixes pass through an accuracy-weighted Kalman filter (`FixSmoother`) that lets the position move at 2 m/s: it roughly halves the wander of a standing phone and lags a walking player by about 2 m. The raw accuracy is kept on each fix, so the accuracy gate and the clearing tolerance are not loosened. The fused request is already at the highest priority and rate the API offers; real accuracy is bounded by the phone's GNSS hardware and sky view. The window sets `FLAG_KEEP_SCREEN_ON`. There is no foreground service and no background-location permission. Holds pause on `onPause` and persist their accumulated time.
 
 ### 8. Writes and idempotency
 
@@ -144,7 +144,7 @@ Reset connection clears the encrypted store and returns to the first screen. Ano
 ## Risks / Trade-offs
 
 - **[Compass error from nearby metal or a weak calibration]** → The 90° sector absorbs moderate error. A warning shows while the sensor is unreliable. Recalibration is left to Android's figure-eight prompt.
-- **[GPS jitter near a field edge]** → Hysteresis margins prevent signal bursts. Writes are gated by accuracy, and clearing uses accuracy as its tolerance.
+- **[GPS jitter near a field edge]** → Smoothing damps wander, and the accuracy-sized exit margin keeps the phone inside a field while fixes wander past its edge. Mark and clear time is kept per field, so a dropped hold loses no progress. Writes are gated by accuracy, and clearing uses accuracy as its tolerance.
 - **[A three-minute hold is tiring]** → Progress persists on release and restart.
 - **[Battery drain from screen-on GPS]** → Accepted. The application works only while in use.
 - **[Mortar hits on Sapper-created fields create deliveries no one reads]** → They expire after 24 hours. Sapper never registers a push token, so no push is sent.

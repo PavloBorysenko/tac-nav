@@ -22,12 +22,13 @@ The application SHALL be named “Tac Nav Mortar”, use package id `com.tacnav.
 
 ### Requirement: Gameplay settings live on the activated phone
 
-The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, elevation-calibration reference angle, and whether a shot publishes this mortar’s position, SHALL require a local PIN whose initial value is `4321`; performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees, the default approximate-guidance radius SHALL be 30 metres, the default GPS limits SHALL be 15 metres of horizontal error and 15 seconds of fix age, and marking the mortar position on shot SHALL be off. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
+The activated phone SHALL keep its gameplay settings locally. Changing those settings, including the allowed firing modes, allowed aiming modes, approximate-guidance radius, elevation-calibration reference angle, and whether a shot publishes this mortar’s position, SHALL require a local PIN whose initial value is `4321`. The PIN SHALL be asked once when the protected settings screen is opened; while that screen stays open, saving settings, choosing the impact icon, and changing the PIN SHALL NOT ask for it again, and leaving the screen SHALL lock it. An empty or malformed PIN SHALL be rejected without spending a failed attempt. Performing calibration or choosing among already allowed modes SHALL NOT require the PIN. The default elevation-calibration reference angle SHALL be 60 degrees, the default approximate-guidance radius SHALL be 30 metres, the default GPS limits SHALL be 15 metres of horizontal error and 15 seconds of fix age, and marking the mortar position on shot SHALL be off. Local changes MUST NOT update the server reference. Successful reactivation SHALL replace local gameplay settings and calibration with the newly returned reference state. The application identity, credential, server URL, and allowed scopes MUST NOT be editable as local gameplay settings.
 
 #### Scenario: PIN protects radius
 
-- **WHEN** a user attempts to change the damage radius
-- **THEN** the application requires the local PIN before saving it
+- **WHEN** a user opens protected settings to change the damage radius
+- **THEN** the application requires the local PIN before showing the settings
+- **AND** the user can change and save the radius without entering the PIN again
 
 #### Scenario: Calibration is quick
 
@@ -37,7 +38,7 @@ The activated phone SHALL keep its gameplay settings locally. Changing those set
 #### Scenario: Mode availability is protected
 
 - **WHEN** a user attempts to enable or disable a firing or aiming mode
-- **THEN** the application requires the local PIN before saving the allowed-mode list
+- **THEN** the application requires the local PIN when protected settings are opened, before the allowed-mode list can be changed
 
 #### Scenario: Player selection is not protected
 

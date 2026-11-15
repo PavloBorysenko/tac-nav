@@ -53,6 +53,8 @@ data class GameState(
     val counters: Counters = Counters(),
     val laying: Laying? = null,
     val clearProgress: List<ClearProgress> = emptyList(),
+    /** Mark minefield hold time by field id. */
+    val markProgress: Map<Long, Long> = emptyMap(),
     val outbox: List<PendingWrite> = emptyList(),
 )
 

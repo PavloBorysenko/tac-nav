@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -74,8 +73,8 @@ fun HoldButton(
     Box(
         modifier
             .fillMaxWidth()
-            .height(88.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(128.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(background)
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
@@ -93,18 +92,8 @@ fun HoldButton(
             .testTag(tag),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Ivory, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Ivory, fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
-}
-
-@Composable
-fun Progress(fraction: Float, tag: String) {
-    LinearProgressIndicator(
-        progress = { fraction },
-        color = Olive,
-        trackColor = Ink.copy(alpha = 0.15f),
-        modifier = Modifier.fillMaxWidth().height(10.dp).testTag(tag),
-    )
 }
 
 @Composable

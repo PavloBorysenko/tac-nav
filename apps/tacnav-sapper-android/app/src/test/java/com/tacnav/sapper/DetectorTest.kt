@@ -3,6 +3,7 @@ package com.tacnav.sapper
 import com.tacnav.sapper.domain.SapperSettings
 import com.tacnav.sapper.game.DetectorLevel
 import com.tacnav.sapper.game.DetectorMachine
+import com.tacnav.sapper.game.Inside
 import com.tacnav.sapper.game.SearchMark
 import com.tacnav.sapper.game.SearchPolicy
 import org.junit.Assert.assertEquals
@@ -138,6 +139,48 @@ class DetectorTest {
         val public = Fields.square(2, 0.0, 0.0, visible = emptyList())
         assertNull(step(DetectorLevel.NONE, listOf(seen), null).markTarget)
         assertNull(step(DetectorLevel.NONE, listOf(public), null).markTarget)
+    }
+
+    @Test
+    fun gpsWanderAtTheEdgeKeepsThePhoneInsideWithoutRepeatedSignals() {
+        // 10 m square centred on HOME: the east edge is 5 m east.
+        val fields = listOf(Fields.square(1, 0.0, 0.0))
+        var level = DetectorLevel.NONE
+        var inside = emptySet<Long>()
+        val signals = mutableListOf<Int>()
+        val seen = mutableListOf<Boolean>()
+        listOf(4.0, 7.0, 4.5, 7.5, 6.0, 4.0).forEach { east ->
+            val result = DetectorMachine.step(
+                level, fields, Fields.at(90.0, east), null, settings, Fields.BLUE, inside, Inside.exitMetres(3.0),
+            )
+            level = result.level
+            inside = result.insideIds
+            signals += result.signals
+            seen += result.insideAny
+        }
+        assertEquals(2, signals.sum())
+        assertTrue(seen.all { it })
+        val left = DetectorMachine.step(
+            level, fields, Fields.at(90.0, 9.0), null, settings, Fields.BLUE, inside, Inside.exitMetres(3.0),
+        )
+        assertFalse(left.insideAny)
+    }
+
+    @Test
+    fun aFieldIsEnteredOnlyFromInside() {
+        val fields = listOf(Fields.square(1, 0.0, 0.0))
+        val near = DetectorMachine.step(
+            DetectorLevel.NONE, fields, Fields.at(90.0, 6.0), null, settings, Fields.BLUE, emptySet(), 5.0,
+        )
+        assertFalse(near.insideAny)
+        assertTrue(near.insideIds.isEmpty())
+    }
+
+    @Test
+    fun exitMarginFollowsAccuracyBetweenOneAndFiveMetres() {
+        assertEquals(1.0, Inside.exitMetres(0.5), 0.0)
+        assertEquals(3.0, Inside.exitMetres(3.0), 0.0)
+        assertEquals(5.0, Inside.exitMetres(12.0), 0.0)
     }
 
     @Test

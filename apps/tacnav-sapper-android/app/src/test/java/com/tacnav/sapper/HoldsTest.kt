@@ -20,24 +20,47 @@ class HoldsTest {
     private val field = Fields.square(1, 0.0, 0.0)
 
     @Test
-    fun releasingMarkAfter20Of30SecondsStartsAgainFromZero() {
+    fun releasingMarkAfter20Of30SecondsKeepsTheProgress() {
         var hold = MarkHold().press(field, 0)
         repeat(20) { second ->
             hold = hold.advance((second + 1) * 1_000L, field, true, settings).first
         }
-        assertEquals(20_000L, hold.heldMillis)
+        assertEquals(20_000L, hold.heldMillis(field.id))
         hold = hold.release()
         hold = hold.press(field, 30_000)
-        assertEquals(0L, hold.heldMillis)
+        assertEquals(20_000L, hold.heldMillis(field.id))
+        var marked: com.tacnav.sapper.domain.MapObject? = null
+        repeat(10) { second ->
+            val (next, done) = hold.advance(31_000L + second * 1_000L, field, true, settings)
+            hold = next
+            if (done != null) marked = done
+        }
+        assertEquals(field, marked)
+        assertEquals(0L, hold.heldMillis(field.id))
     }
 
     @Test
-    fun losingGpsResetsTheMark() {
+    fun losingGpsOrTheFieldStopsTheMarkAndKeepsTheProgress() {
         var hold = MarkHold().press(field, 0)
         hold = hold.advance(10_000, field, true, settings).first
         hold = hold.advance(11_000, field, false, settings).first
         assertFalse(hold.pressed)
-        assertEquals(0L, hold.heldMillis)
+        assertEquals(10_000L, hold.heldMillis(field.id))
+        hold = hold.press(field, 12_000).advance(15_000, field, true, settings).first
+        hold = hold.advance(16_000, null, true, settings).first
+        assertFalse(hold.pressed)
+        assertEquals(13_000L, hold.heldMillis(field.id))
+    }
+
+    @Test
+    fun markProgressIsKeptPerField() {
+        val other = Fields.square(2, 0.0, 30.0)
+        var hold = MarkHold().press(field, 0).advance(5_000, field, true, settings).first.release()
+        hold = hold.press(other, 6_000).advance(8_000, other, true, settings).first.release()
+        assertEquals(5_000L, hold.heldMillis(field.id))
+        assertEquals(2_000L, hold.heldMillis(other.id))
+        assertEquals(2_000L, hold.forget(listOf(field.id)).heldMillis(other.id))
+        assertEquals(0L, hold.forget(listOf(field.id)).heldMillis(field.id))
     }
 
     @Test

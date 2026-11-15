@@ -24,6 +24,20 @@ class PinPolicyTest {
     }
 
     @Test
+    fun `empty or malformed pin is rejected without spending an attempt`() {
+        val policy = PinPolicy(now = { 1_000L })
+        val record = policy.create(PinPolicy.DEFAULT_PIN)
+        val throttle = PinThrottleState(failedAttempts = 2)
+
+        listOf("", "12", "abcd").forEach { pin ->
+            val (attempt, state) = policy.verify(pin, record, throttle)
+
+            assertEquals(PinAttempt.Rejected(3), attempt)
+            assertEquals(throttle, state)
+        }
+    }
+
+    @Test
     fun `five failures enforce a delay`() {
         val policy = PinPolicy(now = { 1_000L })
         val record = policy.create(PinPolicy.DEFAULT_PIN)

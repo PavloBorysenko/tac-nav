@@ -50,7 +50,32 @@ data class DetectorStep(
     val markTarget: MapObject?,
     /** True when the phone is inside at least one kept field. */
     val insideAny: Boolean,
+    /** Kept fields the phone counts as inside, for the next step's hysteresis. */
+    val insideIds: Set<Long> = emptySet(),
 )
+
+/**
+ * Fields the phone stands in, with hysteresis. A field is entered only when the
+ * fix is inside it, and left only when the fix is farther outside its edge than
+ * the fix accuracy, between 1 and 5 metres. GPS wander at an edge therefore does
+ * not flip the phone in and out of the field.
+ */
+object Inside {
+    const val EXIT_MIN_METRES = 1.0
+    const val EXIT_MAX_METRES = 5.0
+
+    fun exitMetres(accuracyMetres: Double): Double = accuracyMetres.coerceIn(EXIT_MIN_METRES, EXIT_MAX_METRES)
+
+    fun update(
+        previous: Set<Long>,
+        fields: List<MapObject>,
+        position: Coordinate,
+        exitMetres: Double,
+    ): Set<Long> = fields.filter { field ->
+        val view = Plane.view(position, field.geometry)
+        view.inside || (field.id in previous && view.distanceMetres <= exitMetres)
+    }.map(MapObject::id).toSet()
+}
 
 /**
  * Detector levels with hysteresis. A level is entered with strict limits and
@@ -58,7 +83,6 @@ data class DetectorStep(
  */
 object DetectorMachine {
     const val SECTOR_MARGIN_DEGREES = 10.0
-    const val INSIDE_EXIT_METRES = 1.0
 
     fun step(
         previous: DetectorLevel,
@@ -67,29 +91,33 @@ object DetectorMachine {
         headingDegrees: Double?,
         settings: SapperSettings,
         teamId: Long,
+        previousInside: Set<Long> = emptySet(),
+        exitMetres: Double = Inside.EXIT_MIN_METRES,
     ): DetectorStep {
         val radius = settings.detectRadiusMetres
         val half = settings.detectSectorDegrees / 2
         val margin = max(1.0, 0.05 * radius)
         var enter = DetectorLevel.NONE
         var hold = DetectorLevel.NONE
+        val insideIds = Inside.update(previousInside, fields, position, exitMetres)
         val inside = mutableListOf<Pair<MapObject, Double>>()
 
         fields.forEach { field ->
             val view = Plane.view(position, field.geometry)
-            if (view.inside) inside += field to view.centreDistanceMetres
-            val angle = if (view.inside) 0.0 else headingDegrees?.let { heading ->
+            val inField = field.id in insideIds
+            if (inField) inside += field to view.centreDistanceMetres
+            val angle = if (inField) 0.0 else headingDegrees?.let { heading ->
                 view.bearingDegrees?.let { Geodesy.angleBetween(it, heading) }
             }
             val fieldEnter = when {
-                view.inside -> DetectorLevel.INSIDE
+                inField -> DetectorLevel.INSIDE
                 angle == null || angle > half -> DetectorLevel.NONE
                 view.distanceMetres <= radius / 2 -> DetectorLevel.NEAR
                 view.distanceMetres <= radius -> DetectorLevel.FAR
                 else -> DetectorLevel.NONE
             }
             val fieldHold = when {
-                view.inside || view.distanceMetres <= INSIDE_EXIT_METRES -> DetectorLevel.INSIDE
+                inField -> DetectorLevel.INSIDE
                 angle == null || angle > half + SECTOR_MARGIN_DEGREES -> DetectorLevel.NONE
                 view.distanceMetres <= radius / 2 + margin -> DetectorLevel.NEAR
                 view.distanceMetres <= radius + margin -> DetectorLevel.FAR
@@ -113,7 +141,7 @@ object DetectorMachine {
         } else {
             null
         }
-        return DetectorStep(level, signals, markTarget, inside.isNotEmpty())
+        return DetectorStep(level, signals, markTarget, inside.isNotEmpty(), insideIds)
     }
 
     /** Another team's or a neutral field that the phone's team cannot see yet. */

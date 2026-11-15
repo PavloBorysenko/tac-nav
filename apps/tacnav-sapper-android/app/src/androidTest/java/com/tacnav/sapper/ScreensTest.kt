@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -191,6 +192,59 @@ class ScreensTest {
         assertTrue(exists("flash_on"))
         compose.mainClock.advanceTimeBy(400)
         assertTrue(exists("flash_off"))
+    }
+
+    @Test
+    fun aMinefieldShowsTheSkullInDetectAndClear() {
+        var mode by mutableStateOf(Mode.DETECT)
+        var inside by mutableStateOf(false)
+        compose.setContent {
+            TacNavTheme {
+                val view = ready.copy(mode = mode, insideMinefield = inside, clearSearched = true, clearTargetId = 31)
+                if (mode == Mode.DETECT) DetectScreen(view, true, actions, {}) else ClearScreen(view, true, actions, {})
+            }
+        }
+        assertTrue(!exists("skull"))
+        inside = true
+        compose.waitForIdle()
+        assertTrue(exists("skull"))
+        mode = Mode.CLEAR
+        compose.waitForIdle()
+        assertTrue(exists("skull"))
+    }
+
+    @Test
+    fun holdProgressShowsThePercentage() {
+        val laying = Laying("lay-1", Fix(50.0, 30.0, 3.0, 0), 40.0, 60_000)
+        compose.setContent {
+            TacNavTheme {
+                LayScreen(ready.copy(mode = Mode.LAY, laying = laying, layFraction = 0.42f), SapperSettings(), true, actions, {})
+            }
+        }
+        compose.onNodeWithText("42%").assertExists()
+    }
+
+    @Test
+    fun aCompletedLayingIsConfirmedForFiveSeconds() {
+        var view by mutableStateOf(ready.copy(mode = Mode.LAY))
+        compose.mainClock.autoAdvance = false
+        compose.setContent { TacNavTheme { LayScreen(view, SapperSettings(), true, actions, {}) } }
+        compose.mainClock.advanceTimeByFrame()
+        assertTrue(!exists("laid_confirmation"))
+        view = view.copy(laidSerial = 1)
+        compose.mainClock.advanceTimeBy(1_000)
+        assertTrue(exists("laid_confirmation"))
+        compose.mainClock.advanceTimeBy(4_500)
+        assertTrue(!exists("laid_confirmation"))
+    }
+
+    @Test
+    fun reopeningLayDoesNotRepeatTheConfirmation() {
+        compose.setContent {
+            TacNavTheme { LayScreen(ready.copy(mode = Mode.LAY, laidSerial = 2), SapperSettings(), true, actions, {}) }
+        }
+        compose.waitForIdle()
+        assertTrue(!exists("laid_confirmation"))
     }
 
     @Test

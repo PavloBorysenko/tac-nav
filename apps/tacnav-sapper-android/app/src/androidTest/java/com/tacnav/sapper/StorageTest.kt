@@ -75,6 +75,7 @@ class StorageTest {
             counters = Counters(2, 5),
             laying = Laying("lay-1", Fix(50.0, 30.0, 3.5, 99L), 40.0, 120_000, locked = true),
             clearProgress = listOf(ClearProgress(31, square, 90_000)),
+            markProgress = mapOf(41L to 20_000L),
             outbox = listOf(
                 PendingWrite.CreateMinefield("lay-0", context, square, 13),
                 PendingWrite.CreateNoMines("tap-1", context, Coordinate(50.0, 30.0), 4.0, null),

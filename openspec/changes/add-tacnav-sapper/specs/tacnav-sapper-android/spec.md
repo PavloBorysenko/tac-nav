@@ -69,6 +69,17 @@ Laying, marking, clearing, and placing a No mines marker SHALL require a fix tha
 - **WHEN** the fix accuracy is 25 metres and the limit is 15 metres
 - **THEN** Lay mines, Clear mines, Mark minefield, and No mines are unavailable with a GPS message, and Detect still signals
 
+### Requirement: Fixes are smoothed
+The application SHALL smooth successive fixes, weighting each by its reported accuracy and allowing the position to move at walking speed, so that the wander of a standing phone's fixes is damped. After a gap longer than 15 seconds, the next fix SHALL start the smoothing again. The GPS accuracy limit SHALL be checked against each fix's reported accuracy, not against the smoothed estimate.
+
+#### Scenario: Standing phone
+- **WHEN** a standing phone receives fixes once a second that alternate 4 metres either side of its real position
+- **THEN** after about 10 seconds the position the application uses stays within 2 metres of the real position
+
+#### Scenario: Walking phone
+- **WHEN** the user walks at 1.4 metres per second for 30 seconds
+- **THEN** the position the application uses is within 3 metres of the user
+
 ### Requirement: Detect searches on a movement cadence
 While Detect is open, the application SHALL search for objects with role `minefield` in a circle around the current fix. The circle's radius SHALL be twice the detection radius. The application SHALL search again after 5 seconds when the phone has moved more than its fix accuracy since the last search, and otherwise after 30 seconds. It SHALL keep the latest results for the local checks between searches.
 
@@ -85,8 +96,9 @@ About once a second, the application SHALL check every kept minefield against th
 
 - **Heading** is the true bearing of the top of the phone, or of its back when the phone is held upright, whichever is closer to horizontal.
 - **Distance** to a field is zero inside it, and otherwise the distance to its nearest edge.
+- The phone **enters** a field when the fix is inside it, and **leaves** it only when the fix is farther outside the field's edge than the fix accuracy, at least 1 metre and at most 5 metres.
 - The **detector state** is one of:
-  - *inside*: the phone is inside any field;
+  - *inside*: the phone is in any field;
   - *near*: a field is within half the detection radius and within the heading sector;
   - *far*: a field is within the detection radius and within the heading sector;
   - *none*.
@@ -96,6 +108,8 @@ A field is within the heading sector when the bearing to its nearest point is wi
 On entering *far*, the phone SHALL play one short signal. On entering *near* or *inside*, it SHALL play two short signals. Moving to a lower state SHALL be silent. A state's signal SHALL repeat only after that state is left and entered again. A field SHALL count as leaving the sector only once its bearing is about 10 degrees beyond the sector edge.
 
 Fields of the phone's own team, and fields its team can see, SHALL signal like any other field. Signals SHALL use the alarm channel so they are audible with media volume off. Each signal SHALL be shown as a short flash. The screen MUST NOT show the distance or direction to a field.
+
+Detect SHALL show an animated mine detector display that cannot be mistaken for a button, with a short hint that says how to sweep and what one and two signals mean.
 
 #### Scenario: Sweeping across a field
 - **WHEN** the user sweeps the phone so that the sector crosses a field 8 metres away, then turns away and back
@@ -117,10 +131,36 @@ Fields of the phone's own team, and fields its team can see, SHALL signal like a
 - **WHEN** the heading wobbles by 3 degrees around the sector edge
 - **THEN** no repeated signals play
 
+#### Scenario: GPS wander at a field edge
+- **WHEN** a phone with 3 metre accuracy is inside a field and its fixes wander up to 2.5 metres outside the edge
+- **THEN** the phone stays inside, no repeated signals play, and it leaves only when the fix is more than 3 metres outside
+
+### Requirement: A skull warns inside a minefield
+While Detect or Clear mines knows that the phone stands inside a minefield, the screen SHALL show a red skull warning. This SHALL apply to fields of every team, including the phone's own team and fields with no owner. Entering and leaving a field SHALL follow the edge margin defined for Detect. The warning SHALL disappear once the phone has left every known field.
+
+#### Scenario: Own field
+- **WHEN** a Blue sapper with Detect open walks into a Blue field
+- **THEN** the red skull warning appears and no Mark minefield button appears
+
+#### Scenario: Next to a field while clearing
+- **WHEN** Clear mines targets a field whose edge is 2 metres away
+- **THEN** the clear button is offered and no skull warning is shown
+
+#### Scenario: GPS wander while clearing
+- **WHEN** a phone with 3 metre accuracy is inside a field in Clear mines and one fix lands 2 metres outside the edge
+- **THEN** the skull warning stays, and it disappears when the fix is 4 metres outside
+
+### Requirement: Hold controls are large and show percent
+Every hold button SHALL be a large control. Its progress bar SHALL be thick and SHALL show the progress as a whole percentage.
+
+#### Scenario: Laying partly done
+- **WHEN** the saved laying progress is 42 percent
+- **THEN** the Lay mines progress bar reads 42%
+
 ### Requirement: A sapper marks another team's minefield
 While Detect shows the phone inside a minefield that another team owns or that has no owner, and whose visibility list does not already include the phone's team or everyone, a blinking red Mark minefield button SHALL appear.
 
-Holding the button for the mark time SHALL add the phone's team to the field's visibility list and SHALL keep the teams already listed. Releasing the button, or the fix becoming unusable, SHALL reset the hold. If another edit changed the field first, the application SHALL read it again and retry. Marking SHALL have no limit. The button SHALL disappear once the team can see the field.
+Holding the button for the mark time SHALL add the phone's team to the field's visibility list and SHALL keep the teams already listed. Hold time SHALL accumulate per field. Releasing the button, the fix becoming unusable, or leaving the field SHALL stop the hold and SHALL keep the time for that field, and the time SHALL survive a restart of the application. Time for a field the team can already see SHALL be discarded. If another edit changed the field first, the application SHALL read it again and retry. Marking SHALL have no limit. The button SHALL disappear once the team can see the field.
 
 #### Scenario: Hidden enemy field
 - **WHEN** a Blue sapper stands inside a Red field visible only to Red and holds Mark minefield for 30 seconds
@@ -134,9 +174,13 @@ Holding the button for the mark time SHALL add the phone's team to the field's v
 - **WHEN** a sapper stands inside a staff field with no owner that its team cannot see
 - **THEN** the Mark minefield button appears
 
-#### Scenario: Release resets the mark
+#### Scenario: Release keeps the mark
 - **WHEN** the user releases Mark minefield after 20 of 30 seconds
-- **THEN** the next hold starts from zero
+- **THEN** the next hold on that field completes after 10 more seconds
+
+#### Scenario: Restart keeps the mark
+- **WHEN** the user leaves the application after 20 of 30 seconds of marking and opens Detect again inside the same field
+- **THEN** the Mark minefield progress bar reads 66% and the next hold continues from there
 
 ### Requirement: No mines markers
 Detect SHALL offer No mines while the phone is outside every kept minefield. Clear mines SHALL offer it after a successful clearing. One tap SHALL place an ordinary marker with these properties:
@@ -176,11 +220,17 @@ On completion the application SHALL create a polygon with role `minefield` and t
 - the configured minefield icon and the title `Minefield`;
 - visible to the phone's team, with no expiry.
 
+On completion the phone SHALL also play three short signals on the alarm channel and SHALL show a full-screen Minefield laid confirmation for 5 seconds. The confirmation SHALL appear only for a laying completed while Lay mines is open, and SHALL NOT repeat when the screen is opened again.
+
 The application SHALL retry the create until the server accepts it, without ever storing two fields for one completion. Each activation SHALL allow the configured maximum number of minefields. 0 SHALL mean unlimited. A field SHALL count once the server accepts it. When the limit is reached, Lay mines SHALL be unavailable and SHALL say so.
 
 #### Scenario: Lay a field
 - **WHEN** a Blue sapper holds Lay mines for 3 minutes in total at one spot with the phone top facing 40 degrees true
 - **THEN** a 10 by 10 metre Blue minefield centred on that spot and aligned to 40 degrees appears for Blue
+
+#### Scenario: Completion is confirmed
+- **WHEN** a laying hold completes
+- **THEN** three short signals play and Minefield laid is shown for 5 seconds
 
 #### Scenario: Release and resume
 - **WHEN** the user releases after 2 minutes and holds again later at the same spot

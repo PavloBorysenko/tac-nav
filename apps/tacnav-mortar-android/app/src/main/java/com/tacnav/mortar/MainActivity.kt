@@ -350,6 +350,7 @@ fun MortarApp(
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.INITIATION) }
     var settingsReturn by rememberSaveable { mutableStateOf(Screen.INITIATION) }
+    var protectedUnlocked by rememberSaveable { mutableStateOf(false) }
     var calibrationNote by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == null) {
         ActivationScreen(onActivate)
@@ -379,6 +380,7 @@ fun MortarApp(
             onReactivate = onReactivate,
             onOpenProtected = {
                 settingsReturn = Screen.INITIATION
+                protectedUnlocked = false
                 screen = Screen.PROTECTED
             },
             onOpenDiagnostics = { screen = Screen.DIAGNOSTICS },
@@ -436,13 +438,24 @@ fun MortarApp(
             },
             onBack = { screen = settingsReturn },
         )
-        Screen.PROTECTED -> ProtectedSettingsScreen(
-            state = state,
-            repository = repository,
-            onSave = repository::saveProtected,
-            onChangePin = repository::changePin,
-            onBack = { screen = settingsReturn },
-        )
+        Screen.PROTECTED -> if (protectedUnlocked) {
+            ProtectedSettingsScreen(
+                state = state,
+                repository = repository,
+                onSave = repository::saveProtected,
+                onChangePin = repository::changePin,
+                onBack = {
+                    protectedUnlocked = false
+                    screen = settingsReturn
+                },
+            )
+        } else {
+            ProtectedPinScreen(
+                onUnlock = repository::unlockProtected,
+                onUnlocked = { protectedUnlocked = true },
+                onBack = { screen = settingsReturn },
+            )
+        }
         Screen.COMPASS -> CompassCalibrationScreen(
             calibration = state.calibration,
             pose = pose,
@@ -1055,14 +1068,69 @@ fun GameplaySettingsScreen(
 }
 
 @Composable
-fun ProtectedSettingsScreen(
-    state: LocalState,
-    repository: MortarRepository? = null,
-    onSave: (String, ProtectedSettingsUpdate) -> ProtectedResult,
-    onChangePin: (String, String) -> ProtectedResult,
+fun ProtectedPinScreen(
+    onUnlock: suspend (String) -> PinAttempt,
+    onUnlocked: () -> Unit,
     onBack: () -> Unit,
 ) {
     var pin by rememberSaveable { mutableStateOf("") }
+    var checking by remember { mutableStateOf(false) }
+    var message by rememberSaveable { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    TacNavChrome {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("Protected settings", style = MaterialTheme.typography.headlineSmall, color = Ink)
+            Text("Enter the local PIN to open settings.", color = Ink)
+            OutlinedTextField(
+                value = pin,
+                onValueChange = { pin = it },
+                label = { Text("PIN") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                colors = fieldColors(),
+                modifier = Modifier.testTag("settings-pin"),
+            )
+            Button(
+                modifier = Modifier.testTag("unlock-protected-settings"),
+                enabled = !checking,
+                colors = primaryButtonColors(),
+                onClick = {
+                    checking = true
+                    scope.launch {
+                        val attempt = runCatching { onUnlock(pin) }
+                            .getOrElse { PinAttempt.Rejected(0) }
+                        checking = false
+                        if (attempt is PinAttempt.Accepted) {
+                            pin = ""
+                            message = null
+                            onUnlocked()
+                        } else {
+                            message = pinAttemptMessage(attempt)
+                        }
+                    }
+                },
+            ) { Text(if (checking) "Checking..." else "Open settings") }
+            message?.let { Text(it, color = Ink) }
+            TextButton(onClick = onBack, colors = textButtonColors()) { Text("Back") }
+        }
+    }
+}
+
+@Composable
+fun ProtectedSettingsScreen(
+    state: LocalState,
+    repository: MortarRepository? = null,
+    onSave: (ProtectedSettingsUpdate) -> ProtectedResult,
+    onChangePin: suspend (String) -> ProtectedResult,
+    onBack: () -> Unit,
+) {
     var newPin by rememberSaveable { mutableStateOf("") }
     var firingModes by remember { mutableStateOf(state.settings.firingModes) }
     var aimingModes by remember { mutableStateOf(state.settings.aimingModes) }
@@ -1103,15 +1171,6 @@ fun ProtectedSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("Protected settings", style = MaterialTheme.typography.headlineSmall, color = Ink)
-            Text("Enter the local PIN to save. The initial PIN is 4321.", color = Ink)
-            OutlinedTextField(
-                value = pin,
-                onValueChange = { pin = it },
-                label = { Text("PIN") },
-                visualTransformation = PasswordVisualTransformation(),
-                colors = fieldColors(),
-                modifier = Modifier.testTag("settings-pin"),
-            )
             Text("Allowed firing modes", style = MaterialTheme.typography.titleMedium, color = Ink)
             FiringMode.entries.forEach { mode ->
                 CheckboxRow(firingLabel(mode), mode in firingModes) { checked ->
@@ -1160,7 +1219,10 @@ fun ProtectedSettingsScreen(
                 IconRow(icon, icon.id == state.settings.impactIconId) {
                     scope.launch {
                         repository?.let { store ->
-                            message = protectedMessage(store.selectIcon(pin, icon))
+                            message = runCatching { store.selectIcon(icon) }
+                                .fold(::protectedMessage) {
+                                    it.message ?: "The icon could not be selected."
+                                }
                         }
                     }
                 }
@@ -1195,7 +1257,7 @@ fun ProtectedSettingsScreen(
                         message = it.message
                         return@Button
                     }
-                    when (val result = onSave(pin, ProtectedSettingsUpdate(settings, mapId, teamId))) {
+                    when (val result = onSave(ProtectedSettingsUpdate(settings, mapId, teamId))) {
                         ProtectedResult.Saved -> onBack()
                         else -> message = protectedMessage(result)
                     }
@@ -1210,7 +1272,18 @@ fun ProtectedSettingsScreen(
                 colors = fieldColors(),
             )
             OutlinedButton(
-                onClick = { message = protectedMessage(onChangePin(pin, newPin)) },
+                modifier = Modifier.testTag("change-pin"),
+                onClick = {
+                    scope.launch {
+                        message = when (val result = onChangePin(newPin)) {
+                            ProtectedResult.Saved -> {
+                                newPin = ""
+                                "PIN changed."
+                            }
+                            else -> protectedMessage(result)
+                        }
+                    }
+                },
                 colors = secondaryButtonColors(),
             ) {
                 Text("Change PIN")
@@ -1566,11 +1639,12 @@ private fun aimingLabel(mode: AimingMode): String = when (mode) {
 private fun protectedMessage(result: ProtectedResult): String = when (result) {
     ProtectedResult.Saved -> "Saved."
     is ProtectedResult.Invalid -> result.message
-    is ProtectedResult.Denied -> when (val attempt = result.attempt) {
-        PinAttempt.Accepted -> "Saved."
-        is PinAttempt.Rejected ->
-            "Incorrect PIN. ${attempt.attemptsRemaining} attempts remain before a delay."
-        is PinAttempt.Throttled ->
-            "Too many failed attempts. Try again in ${attempt.retryAfterMillis / 1_000 + 1} seconds."
-    }
+}
+
+private fun pinAttemptMessage(attempt: PinAttempt): String = when (attempt) {
+    PinAttempt.Accepted -> "PIN accepted."
+    is PinAttempt.Rejected ->
+        "Incorrect PIN. ${attempt.attemptsRemaining} attempts remain before a delay."
+    is PinAttempt.Throttled ->
+        "Too many failed attempts. Try again in ${attempt.retryAfterMillis / 1_000 + 1} seconds."
 }

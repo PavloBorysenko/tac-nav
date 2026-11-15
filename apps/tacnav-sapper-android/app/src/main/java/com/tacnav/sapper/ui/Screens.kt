@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -25,13 +24,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -170,22 +168,17 @@ fun DetectScreen(
     }
     Page("Detect") {
         StatusLines(view, locationGranted, gpsNeeded = false)
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(160.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(if (flashing) Ivory else Olive)
-                .testTag(if (flashing) "flash_on" else "flash_off"),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                if (view.level == DetectorLevel.INSIDE) "Minefield" else "Searching",
-                color = if (flashing) Ink else Ivory,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        if (view.insideMinefield) MinefieldWarning()
+        DetectorScope(
+            flashing = flashing,
+            label = if (view.level == DetectorLevel.INSIDE) "Minefield" else "Scanning…",
+            tag = if (flashing) "flash_on" else "flash_off",
+        )
+        Text(
+            "Point the top of the phone ahead and sweep slowly. " +
+                "One beep: a minefield ahead. Two beeps: very close or inside.",
+            modifier = Modifier.testTag("detect_hint"),
+        )
         if (view.markAvailable) {
             val pulse = rememberInfiniteTransition(label = "mark")
             val alpha by pulse.animateFloat(
@@ -204,7 +197,7 @@ fun DetectScreen(
                 color = Danger,
                 modifier = Modifier.alpha(if (view.markPressed) 1f else alpha),
             )
-            Progress(view.markFraction, "mark_progress")
+            Progress(view.markFraction, "mark_progress", color = Danger)
         }
         if (view.noMinesOffered) NoMinesButton(view, actions)
         view.message?.let { Notice(it, "message") }
@@ -236,6 +229,32 @@ fun LayScreen(
 ) {
     val left = view.minefieldsLeft
     val locked = view.laying?.locked == true
+    // Only a laying completed while this screen is open is confirmed.
+    var seenLaid by remember { mutableIntStateOf(view.laidSerial) }
+    var confirming by remember { mutableStateOf(false) }
+    LaunchedEffect(view.laidSerial) {
+        if (view.laidSerial <= seenLaid) return@LaunchedEffect
+        seenLaid = view.laidSerial
+        confirming = true
+        delay(LAID_CONFIRMATION_MILLIS)
+        confirming = false
+    }
+    Box(Modifier.fillMaxSize()) {
+        LayPage(view, settings, locationGranted, actions, onBack, left, locked)
+        if (confirming) LaidConfirmation(onDismiss = { confirming = false })
+    }
+}
+
+@Composable
+private fun LayPage(
+    view: SapperView,
+    settings: SapperSettings,
+    locationGranted: Boolean,
+    actions: SapperActions,
+    onBack: () -> Unit,
+    left: Int?,
+    locked: Boolean,
+) {
     Page("Lay mines") {
         StatusLines(view, locationGranted, gpsNeeded = true)
         Text(
@@ -277,6 +296,7 @@ fun ClearScreen(
 ) {
     Page("Clear mines") {
         StatusLines(view, locationGranted, gpsNeeded = true)
+        if (view.insideMinefield) MinefieldWarning()
         when {
             view.safe -> {
                 Text(
@@ -306,5 +326,7 @@ fun ClearScreen(
         BackButton(onBack)
     }
 }
+
+const val LAID_CONFIRMATION_MILLIS = 5_000L
 
 private fun Double.trimmed(): String = if (this % 1.0 == 0.0) toLong().toString() else toString()

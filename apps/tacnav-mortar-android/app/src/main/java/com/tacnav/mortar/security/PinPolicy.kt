@@ -41,6 +41,14 @@ class PinPolicy(
             return PinAttempt.Throttled(throttle.blockedUntilEpochMillis - currentTime) to throttle
         }
 
+        // A malformed PIN (for example an empty field) can never match a stored PIN,
+        // and PBKDF2 on Android throws for an empty password. Reject it without
+        // deriving and without spending one of the limited attempts.
+        if (!isWellFormed(pin)) {
+            val remaining = (ATTEMPTS_BEFORE_DELAY - throttle.failedAttempts).coerceAtLeast(0)
+            return PinAttempt.Rejected(remaining) to throttle
+        }
+
         val matches = MessageDigest.isEqual(derive(pin, record.salt), record.hash)
         if (matches) {
             return PinAttempt.Accepted to PinThrottleState()
@@ -62,10 +70,13 @@ class PinPolicy(
     }
 
     fun validateFormat(pin: String) {
-        require(pin.length >= 4 && pin.all(Char::isDigit)) {
+        require(isWellFormed(pin)) {
             "PIN must contain at least four digits."
         }
     }
+
+    private fun isWellFormed(pin: String): Boolean =
+        pin.length >= 4 && pin.all(Char::isDigit)
 
     private fun derive(pin: String, salt: ByteArray): ByteArray {
         val specification = PBEKeySpec(pin.toCharArray(), salt, 120_000, 256)

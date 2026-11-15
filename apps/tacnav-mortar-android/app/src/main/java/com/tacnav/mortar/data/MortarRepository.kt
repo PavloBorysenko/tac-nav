@@ -12,10 +12,14 @@ import com.tacnav.mortar.security.CalibrationState
 import com.tacnav.mortar.security.LocalState
 import com.tacnav.mortar.security.PinAttempt
 import com.tacnav.mortar.security.PinPolicy
+import com.tacnav.mortar.security.PinThrottleState
 import com.tacnav.mortar.security.SecureStateStore
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 data class ProtectedSettingsUpdate(
     val settings: GameplaySettings,
@@ -25,7 +29,6 @@ data class ProtectedSettingsUpdate(
 
 sealed interface ProtectedResult {
     data object Saved : ProtectedResult
-    data class Denied(val attempt: PinAttempt) : ProtectedResult
     data class Invalid(val message: String) : ProtectedResult
 }
 
@@ -54,16 +57,25 @@ class MortarRepository(
         mutableIcons.value = emptyList()
     }
 
-    fun saveProtected(
-        pin: String,
-        update: ProtectedSettingsUpdate,
-    ): ProtectedResult {
-        val current = mutableState.value ?: return ProtectedResult.Invalid("Activate first.")
-        val (attempt, throttle) = pinPolicy.verify(pin, current.pin, current.pinThrottle)
-        if (attempt !is PinAttempt.Accepted) {
-            persist(current.copy(pinThrottle = throttle))
-            return ProtectedResult.Denied(attempt)
+    /**
+     * Checks the local PIN once when the protected settings screen is opened.
+     * Every protected change below assumes the caller passed this gate.
+     */
+    suspend fun unlockProtected(pin: String): PinAttempt {
+        val current = mutableState.value
+            ?: return PinAttempt.Rejected(0)
+        val (attempt, throttle) = withContext(Dispatchers.Default) {
+            pinPolicy.verify(pin, current.pin, current.pinThrottle)
         }
+        val latest = mutableState.value ?: return attempt
+        if (latest.activation.installationId == current.activation.installationId) {
+            persist(latest.copy(pinThrottle = throttle))
+        }
+        return attempt
+    }
+
+    fun saveProtected(update: ProtectedSettingsUpdate): ProtectedResult {
+        val current = mutableState.value ?: return ProtectedResult.Invalid("Activate first.")
         return try {
             val settings = update.settings.validated()
             val context = ScopeRules.select(
@@ -75,7 +87,6 @@ class MortarRepository(
                 current.copy(
                     settings = settings,
                     context = context,
-                    pinThrottle = throttle,
                     activeFiringMode = current.activeFiringMode
                         .takeIf(settings.firingModes::contains)
                         ?: settings.firingModes.first(),
@@ -90,24 +101,15 @@ class MortarRepository(
         }
     }
 
-    fun changePin(oldPin: String, newPin: String): ProtectedResult {
-        val current = mutableState.value ?: return ProtectedResult.Invalid("Activate first.")
-        val (attempt, throttle) = pinPolicy.verify(oldPin, current.pin, current.pinThrottle)
-        if (attempt !is PinAttempt.Accepted) {
-            persist(current.copy(pinThrottle = throttle))
-            return ProtectedResult.Denied(attempt)
-        }
-        return try {
-            persist(
-                current.copy(
-                    pin = pinPolicy.create(newPin),
-                    pinThrottle = throttle,
-                ),
-            )
-            ProtectedResult.Saved
+    suspend fun changePin(newPin: String): ProtectedResult {
+        val record = try {
+            withContext(Dispatchers.Default) { pinPolicy.create(newPin) }
         } catch (error: IllegalArgumentException) {
-            ProtectedResult.Invalid(error.message ?: "PIN is invalid.")
+            return ProtectedResult.Invalid(error.message ?: "PIN is invalid.")
         }
+        val latest = mutableState.value ?: return ProtectedResult.Invalid("Activate first.")
+        persist(latest.copy(pin = record, pinThrottle = PinThrottleState()))
+        return ProtectedResult.Saved
     }
 
     fun selectPlayerModes(
@@ -151,14 +153,13 @@ class MortarRepository(
         }
     }
 
-    suspend fun selectIcon(pin: String, icon: CatalogIcon): ProtectedResult {
+    suspend fun selectIcon(icon: CatalogIcon): ProtectedResult {
         val current = mutableState.value ?: return ProtectedResult.Invalid("Activate first.")
-        val (attempt, throttle) = pinPolicy.verify(pin, current.pin, current.pinThrottle)
-        if (attempt !is PinAttempt.Accepted) {
-            persist(current.copy(pinThrottle = throttle))
-            return ProtectedResult.Denied(attempt)
+        val iconBytes = try {
+            api.downloadIcon(icon)
+        } catch (error: IOException) {
+            return ProtectedResult.Invalid(error.message ?: "The icon could not be downloaded.")
         }
-        val iconBytes = api.downloadIcon(icon)
         val latest = mutableState.value
             ?: return ProtectedResult.Invalid("Activation changed while loading the icon.")
         if (latest.activation.installationId != current.activation.installationId) {
@@ -168,7 +169,6 @@ class MortarRepository(
         persist(
             latest.copy(
                 settings = latest.settings.copy(impactIconId = icon.id),
-                pinThrottle = throttle,
             ),
         )
         return ProtectedResult.Saved
